@@ -1,0 +1,382 @@
+<script setup lang="ts">
+import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
+import type { CouponStatus } from '~/types/common'
+
+definePageMeta({ layout: 'default' })
+
+const route = useRoute()
+const router = useRouter()
+const couponApi = useAdminCoupon()
+const toast = useToast()
+const confirm = useConfirm()
+
+const isNew = route.params.id === 'new'
+const id = isNew ? 0 : Number(route.params.id)
+
+const coupon = ref<any>(null)
+const loading = ref(!isNew)
+const saving = ref(false)
+const editing = ref(isNew)
+
+const statusLabels: Record<string, string> = {
+  REGISTERED: '등록', ACTIVE: '발급중', STOPPED: '발급중지',
+  ENDED: '종료', RECALLED: '회수완료'
+}
+
+const typeLabels: Record<string, string> = {
+  PRODUCT_DISCOUNT: '상품할인', FREE_SHIPPING: '무료배송'
+}
+
+const form = reactive<any>({
+  name: '',
+  description: '',
+  notice: '',
+  couponType: 'PRODUCT_DISCOUNT',
+  discountType: 'RATE',
+  discountValue: null,
+  maxDiscountAmount: null,
+  minOrderAmount: 0,
+  totalQuantity: null,
+  validityType: 'DAYS_FROM_DOWNLOAD',
+  validityDays: 30,
+  validFrom: '',
+  validTo: '',
+  allowPromotionOverlap: false,
+  allowDuplicateUse: false
+})
+
+const resetForm = () => {
+  const c = coupon.value
+  if (!c) return
+  Object.assign(form, {
+    name: c.name ?? '',
+    description: c.description ?? '',
+    notice: c.notice ?? '',
+    couponType: c.couponType ?? 'PRODUCT_DISCOUNT',
+    discountType: c.discountType ?? 'RATE',
+    discountValue: c.discountValue ?? null,
+    maxDiscountAmount: c.maxDiscountAmount ?? null,
+    minOrderAmount: c.minOrderAmount ?? 0,
+    totalQuantity: c.totalQuantity ?? null,
+    validityType: c.validityType ?? 'DAYS_FROM_DOWNLOAD',
+    validityDays: c.validityDays ?? 30,
+    validFrom: c.validFrom?.slice(0, 16) ?? '',
+    validTo: c.validTo?.slice(0, 16) ?? '',
+    allowPromotionOverlap: c.allowPromotionOverlap ?? false,
+    allowDuplicateUse: c.allowDuplicateUse ?? false
+  })
+}
+
+const load = async () => {
+  if (isNew) return
+  loading.value = true
+  try {
+    coupon.value = await couponApi.detail(id)
+    resetForm()
+  } finally { loading.value = false }
+}
+
+const startEdit = () => { editing.value = true }
+const cancelEdit = () => {
+  if (isNew) return router.push('/coupons')
+  editing.value = false
+  resetForm()
+}
+
+const buildBody = () => {
+  const body: any = {
+    name: form.name,
+    description: form.description || undefined,
+    notice: form.notice || undefined,
+    couponType: form.couponType,
+    discountType: form.discountType,
+    discountValue: form.discountValue != null ? Number(form.discountValue) : undefined,
+    maxDiscountAmount: form.maxDiscountAmount != null && form.maxDiscountAmount !== '' ? Number(form.maxDiscountAmount) : undefined,
+    minOrderAmount: Number(form.minOrderAmount) || 0,
+    totalQuantity: form.totalQuantity != null && form.totalQuantity !== '' ? Number(form.totalQuantity) : undefined,
+    validityType: form.validityType,
+    allowPromotionOverlap: form.allowPromotionOverlap,
+    allowDuplicateUse: form.allowDuplicateUse
+  }
+  if (form.validityType === 'DAYS_FROM_DOWNLOAD') {
+    body.validityDays = Number(form.validityDays)
+  } else {
+    body.validFrom = form.validFrom ? `${form.validFrom}:00` : undefined
+    body.validTo = form.validTo ? `${form.validTo}:00` : undefined
+  }
+  return body
+}
+
+const submit = async () => {
+  if (!form.name.trim()) return toast.error('쿠폰명은 필수입니다.')
+  if (form.discountValue == null || form.discountValue === '') return toast.error('할인값은 필수입니다.')
+  if (form.validityType === 'FIXED_PERIOD' && (!form.validFrom || !form.validTo)) {
+    return toast.error('유효기간 시작/종료를 입력하세요.')
+  }
+  saving.value = true
+  try {
+    if (isNew) {
+      const res: any = await couponApi.create(buildBody())
+      const newId = typeof res === 'object' ? (res.id ?? res) : res
+      toast.success('쿠폰을 등록했습니다.')
+      router.push(`/coupons/${newId}`)
+    } else {
+      await couponApi.update(id, buildBody())
+      toast.success('쿠폰을 수정했습니다.')
+      editing.value = false
+      await load()
+    }
+  } catch (e) {
+    toast.error(e, '저장 실패')
+  } finally { saving.value = false }
+}
+
+const toggleVisibility = async () => {
+  saving.value = true
+  try { await couponApi.toggleVisibility(id); await load() }
+  finally { saving.value = false }
+}
+
+const changeStatus = async (status: CouponStatus) => {
+  const ok = await confirm.ask('쿠폰 상태 변경', {
+    description: `상태를 ${statusLabels[status]}로 변경합니다.`,
+    confirmText: '변경'
+  })
+  if (!ok) return
+  saving.value = true
+  try { await couponApi.updateStatus(id, { status }); await load() }
+  finally { saving.value = false }
+}
+
+const recall = async () => {
+  const ok = await confirm.ask('쿠폰 회수', {
+    description: '미사용 쿠폰이 모두 회수됩니다. 이 작업은 되돌릴 수 없습니다.',
+    confirmText: '회수',
+    tone: 'danger'
+  })
+  if (!ok) return
+  saving.value = true
+  try { await couponApi.recall(id); await load() }
+  finally { saving.value = false }
+}
+
+const remove = async () => {
+  const ok = await confirm.ask('쿠폰 삭제', {
+    description: `"${coupon.value?.name}"을(를) 삭제합니다.`,
+    confirmText: '삭제',
+    tone: 'danger'
+  })
+  if (!ok) return
+  await couponApi.remove(id)
+  router.push('/coupons')
+}
+
+const discountText = computed(() => {
+  const c = coupon.value
+  if (!c) return '-'
+  return c.discountType === 'RATE'
+    ? `${c.discountValue}% 할인${c.maxDiscountAmount ? ` (최대 ${formatCurrency(c.maxDiscountAmount)})` : ''}`
+    : `${formatCurrency(c.discountValue)} 할인`
+})
+
+const validityText = computed(() => {
+  const c = coupon.value
+  if (!c) return '-'
+  if (c.validityType === 'DAYS_FROM_DOWNLOAD') return `다운로드 후 ${c.validityDays}일`
+  return `${formatDate(c.validFrom)} ~ ${formatDate(c.validTo)}`
+})
+
+onMounted(load)
+useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.value?.name ?? '쿠폰'} | ZeroLabs Admin` })
+</script>
+
+<template>
+  <div class="p-8 max-w-4xl">
+    <DetailHeader
+      :title="isNew ? '새 쿠폰 등록' : (coupon?.name ?? (loading ? '…' : '쿠폰'))"
+      :subtitle="isNew ? null : (coupon ? `쿠폰 ID · ${coupon.id}` : null)"
+      back-to="/coupons"
+    >
+      <template #actions>
+        <template v-if="!editing && coupon">
+          <StatusBadge :label="statusLabels[coupon.status] ?? coupon.status" :status="coupon.status" />
+          <Button variant="outline" size="sm" @click="startEdit">
+            <Icon name="lucide:pencil" size="14" class="mr-1" /> 수정
+          </Button>
+        </template>
+      </template>
+    </DetailHeader>
+
+    <div v-if="loading" class="text-center text-muted-foreground py-20">불러오는 중…</div>
+
+    <!-- 폼 -->
+    <Card v-else-if="editing">
+      <CardContent class="pt-6 space-y-5">
+        <div>
+          <Label class="mb-1.5 block">쿠폰명 <span class="text-destructive">*</span></Label>
+          <Input v-model="form.name" placeholder="예: 신규회원 10% 할인" maxlength="100" />
+        </div>
+
+        <div>
+          <Label class="mb-1.5 block">설명</Label>
+          <Textarea v-model="form.description" rows="2" placeholder="고객에게 보이는 설명 (선택)" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <Label class="mb-1.5 block">쿠폰 타입 <span class="text-destructive">*</span></Label>
+            <select v-model="form.couponType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="PRODUCT_DISCOUNT">상품할인</option>
+              <option value="FREE_SHIPPING">무료배송</option>
+            </select>
+          </div>
+          <div>
+            <Label class="mb-1.5 block">할인 방식 <span class="text-destructive">*</span></Label>
+            <select v-model="form.discountType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="RATE">정률 (%)</option>
+              <option value="AMOUNT">정액 (원)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <Label class="mb-1.5 block">
+              할인값 <span class="text-destructive">*</span>
+              <span class="text-xs text-muted-foreground ml-1">({{ form.discountType === 'RATE' ? '%' : '원' }})</span>
+            </Label>
+            <Input v-model="form.discountValue" type="number" :step="form.discountType === 'RATE' ? 1 : 100" />
+          </div>
+          <div v-if="form.discountType === 'RATE'">
+            <Label class="mb-1.5 block">최대 할인 한도 (원)</Label>
+            <Input v-model="form.maxDiscountAmount" type="number" step="100" placeholder="제한 없음이면 비워두기" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <Label class="mb-1.5 block">최소 주문금액 (원)</Label>
+            <Input v-model="form.minOrderAmount" type="number" step="1000" />
+          </div>
+          <div>
+            <Label class="mb-1.5 block">발급 수량</Label>
+            <Input v-model="form.totalQuantity" type="number" step="1" placeholder="무제한이면 비워두기" />
+          </div>
+        </div>
+
+        <div>
+          <Label class="mb-1.5 block">유효기간 방식 <span class="text-destructive">*</span></Label>
+          <select v-model="form.validityType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option value="DAYS_FROM_DOWNLOAD">다운로드 후 N일</option>
+            <option value="FIXED_PERIOD">기간 지정</option>
+          </select>
+        </div>
+
+        <div v-if="form.validityType === 'DAYS_FROM_DOWNLOAD'">
+          <Label class="mb-1.5 block">유효일수 (일)</Label>
+          <Input v-model="form.validityDays" type="number" step="1" />
+        </div>
+
+        <div v-else class="grid grid-cols-2 gap-4">
+          <div>
+            <Label class="mb-1.5 block">시작일시</Label>
+            <Input v-model="form.validFrom" type="datetime-local" />
+          </div>
+          <div>
+            <Label class="mb-1.5 block">종료일시</Label>
+            <Input v-model="form.validTo" type="datetime-local" />
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-6 pt-2">
+          <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+            <input v-model="form.allowPromotionOverlap" type="checkbox" class="h-4 w-4" />
+            프로모션 중복 적용
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+            <input v-model="form.allowDuplicateUse" type="checkbox" class="h-4 w-4" />
+            다른 쿠폰과 중복 사용
+          </label>
+        </div>
+
+        <div>
+          <Label class="mb-1.5 block">유의사항</Label>
+          <Textarea v-model="form.notice" rows="3" placeholder="고객에게 보이는 사용 제한 안내 (선택)" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t">
+          <Button variant="outline" :disabled="saving" @click="cancelEdit">취소</Button>
+          <Button :disabled="saving" @click="submit">
+            <Icon :name="isNew ? 'lucide:plus' : 'lucide:save'" size="14" class="mr-1" />
+            {{ isNew ? '등록' : '저장' }}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- 조회 -->
+    <div v-else-if="coupon" class="space-y-6">
+      <DetailSection title="쿠폰 정보">
+        <DetailField label="쿠폰명" :value="coupon.name" full />
+        <DetailField label="설명" :value="coupon.description" full />
+        <DetailField label="타입" :value="typeLabels[coupon.couponType] ?? coupon.couponType" />
+        <DetailField label="상태" :value="statusLabels[coupon.status] ?? coupon.status" />
+        <DetailField label="할인" :value="discountText" />
+        <DetailField label="최소 주문금액" :value="formatCurrency(coupon.minOrderAmount)" />
+        <DetailField label="발급 수량" :value="`${formatNumber(coupon.issuedQuantity)} / ${formatNumber(coupon.totalQuantity)}`" />
+        <DetailField label="유효기간" :value="validityText" />
+        <DetailField label="프로모션 중복" :value="coupon.allowPromotionOverlap ? '가능' : '불가'" />
+        <DetailField label="쿠폰 중복" :value="coupon.allowDuplicateUse ? '가능' : '불가'" />
+        <DetailField label="노출 여부" :value="coupon.isVisible ? '노출' : '숨김'" />
+        <DetailField label="등록일시" :value="formatDate(coupon.createdAt)" />
+        <DetailField v-if="coupon.notice" label="유의사항" full>
+          <div class="whitespace-pre-wrap text-muted-foreground">{{ coupon.notice }}</div>
+        </DetailField>
+
+        <template #footer>
+          <Button variant="outline" size="sm" :disabled="saving" @click="toggleVisibility">
+            <Icon :name="coupon.isVisible ? 'lucide:eye-off' : 'lucide:eye'" size="14" class="mr-1" />
+            {{ coupon.isVisible ? '숨기기' : '노출' }}
+          </Button>
+          <Button
+            v-if="coupon.status === 'REGISTERED' || coupon.status === 'STOPPED'"
+            variant="outline"
+            size="sm"
+            :disabled="saving"
+            @click="changeStatus('ACTIVE')"
+          >발급 시작</Button>
+          <Button
+            v-if="coupon.status === 'ACTIVE'"
+            variant="outline"
+            size="sm"
+            :disabled="saving"
+            @click="changeStatus('STOPPED')"
+          >발급 중지</Button>
+          <Button
+            v-if="coupon.status !== 'RECALLED'"
+            variant="outline"
+            size="sm"
+            class="text-destructive"
+            :disabled="saving"
+            @click="recall"
+          >회수</Button>
+          <Button variant="outline" size="sm" class="text-destructive" @click="remove">삭제</Button>
+        </template>
+      </DetailSection>
+
+      <DetailSection v-if="coupon.grades?.length" title="적용 등급">
+        <div class="col-span-2 flex flex-wrap gap-1">
+          <Badge v-for="g in coupon.grades" :key="g.id" variant="secondary">{{ g.name }}</Badge>
+        </div>
+      </DetailSection>
+
+      <DetailSection v-if="coupon.categories?.length" title="적용 카테고리">
+        <div class="col-span-2 flex flex-wrap gap-1">
+          <Badge v-for="c in coupon.categories" :key="c.id" variant="secondary">{{ c.name }}</Badge>
+        </div>
+      </DetailSection>
+    </div>
+
+    <div v-else class="text-center text-muted-foreground py-20">쿠폰을 찾을 수 없습니다.</div>
+  </div>
+</template>

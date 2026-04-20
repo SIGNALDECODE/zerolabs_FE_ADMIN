@@ -1,0 +1,26 @@
+/**
+ * Backend ErrorCode 상수
+ * 출처: core/src/main/java/com/signaldecode/zerolabsapi/common/exception/ErrorCode.java
+ */
+
+export const ERROR_CODE = {
+  // Auth
+  AUTH_INVALID_TOKEN: 'AUTH_001',
+  AUTH_TOKEN_EXPIRED: 'AUTH_002',
+  AUTH_USER_NOT_FOUND: 'AUTH_003',
+  AUTH_BAD_CREDENTIALS: 'AUTH_006',
+  AUTH_INACTIVE: 'AUTH_007',
+  AUTH_SUSPENDED: 'AUTH_008',
+  AUTH_LOGIN_REQUIRED: 'AUTH_016',
+  AUTH_FORBIDDEN: 'AUTH_017',
+
+  MEMBER_NOT_FOUND: 'MEMBER_001',
+  PRODUCT_NOT_FOUND: 'PRODUCT_001',
+  ORDER_NOT_FOUND: 'ORDER_001',
+  PAYMENT_NOT_FOUND: 'PAYMENT_001',
+  CLAIM_NOT_FOUND: 'CLAIM_001',
+
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR'
+} as const
+
+export type ErrorCodeValue = typeof ERROR_CODE[keyof typeof ERROR_CODE]
