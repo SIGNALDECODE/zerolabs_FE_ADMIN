@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
 import type { CouponStatus } from '~/types/common'
+import type { CouponDetail, CouponFormState } from '~/types/marketing'
+import type { CouponCreateBody } from '~/composables/useAdminCoupon'
 
 definePageMeta({ layout: 'default' })
 
@@ -13,7 +15,7 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const coupon = ref<any>(null)
+const coupon = ref<CouponDetail | null>(null)
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
@@ -27,16 +29,16 @@ const typeLabels: Record<string, string> = {
   PRODUCT_DISCOUNT: '상품할인', FREE_SHIPPING: '무료배송'
 }
 
-const form = reactive<any>({
+const form = reactive<CouponFormState>({
   name: '',
   description: '',
   notice: '',
   couponType: 'PRODUCT_DISCOUNT',
   discountType: 'RATE',
-  discountValue: null,
-  maxDiscountAmount: null,
+  discountValue: undefined,
+  maxDiscountAmount: undefined,
   minOrderAmount: 0,
-  totalQuantity: null,
+  totalQuantity: undefined,
   validityType: 'DAYS_FROM_DOWNLOAD',
   validityDays: 30,
   validFrom: '',
@@ -54,10 +56,10 @@ const resetForm = () => {
     notice: c.notice ?? '',
     couponType: c.couponType ?? 'PRODUCT_DISCOUNT',
     discountType: c.discountType ?? 'RATE',
-    discountValue: c.discountValue ?? null,
-    maxDiscountAmount: c.maxDiscountAmount ?? null,
+    discountValue: c.discountValue ?? undefined,
+    maxDiscountAmount: c.maxDiscountAmount ?? undefined,
     minOrderAmount: c.minOrderAmount ?? 0,
-    totalQuantity: c.totalQuantity ?? null,
+    totalQuantity: c.totalQuantity ?? undefined,
     validityType: c.validityType ?? 'DAYS_FROM_DOWNLOAD',
     validityDays: c.validityDays ?? 30,
     validFrom: c.validFrom?.slice(0, 16) ?? '',
@@ -83,17 +85,21 @@ const cancelEdit = () => {
   resetForm()
 }
 
-const buildBody = () => {
-  const body: any = {
+const toNumberOrUndefined = (v: number | string | null | undefined): number | undefined =>
+  v != null && v !== '' ? Number(v) : undefined
+
+/** submit 에서 validation 후 호출 — discountValue 는 non-null 로 가정. */
+const buildBody = (): CouponCreateBody => {
+  const body: CouponCreateBody = {
     name: form.name,
     description: form.description || undefined,
     notice: form.notice || undefined,
     couponType: form.couponType,
     discountType: form.discountType,
-    discountValue: form.discountValue != null ? Number(form.discountValue) : undefined,
-    maxDiscountAmount: form.maxDiscountAmount != null && form.maxDiscountAmount !== '' ? Number(form.maxDiscountAmount) : undefined,
+    discountValue: Number(form.discountValue ?? 0),
+    maxDiscountAmount: toNumberOrUndefined(form.maxDiscountAmount),
     minOrderAmount: Number(form.minOrderAmount) || 0,
-    totalQuantity: form.totalQuantity != null && form.totalQuantity !== '' ? Number(form.totalQuantity) : undefined,
+    totalQuantity: toNumberOrUndefined(form.totalQuantity),
     validityType: form.validityType,
     allowPromotionOverlap: form.allowPromotionOverlap,
     allowDuplicateUse: form.allowDuplicateUse
@@ -116,10 +122,9 @@ const submit = async () => {
   saving.value = true
   try {
     if (isNew) {
-      const res: any = await couponApi.create(buildBody())
-      const newId = typeof res === 'object' ? (res.id ?? res) : res
+      const res = await couponApi.create(buildBody())
       toast.success('쿠폰을 등록했습니다.')
-      router.push(`/coupons/${newId}`)
+      router.push(`/coupons/${res.id}`)
     } else {
       await couponApi.update(id, buildBody())
       toast.success('쿠폰을 수정했습니다.')
@@ -167,8 +172,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await couponApi.remove(id)
-  router.push('/coupons')
+  try {
+    await couponApi.remove(id)
+    toast.success('쿠폰을 삭제했습니다.')
+    router.push('/coupons')
+  } catch (e) {
+    toast.error(e, '쿠폰 삭제 실패')
+  }
 }
 
 const discountText = computed(() => {
@@ -225,17 +235,27 @@ useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">쿠폰 타입 <span class="text-destructive">*</span></Label>
-            <select v-model="form.couponType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="PRODUCT_DISCOUNT">상품할인</option>
-              <option value="FREE_SHIPPING">무료배송</option>
-            </select>
+            <Select v-model="form.couponType">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PRODUCT_DISCOUNT">상품할인</SelectItem>
+                <SelectItem value="FREE_SHIPPING">무료배송</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label class="mb-1.5 block">할인 방식 <span class="text-destructive">*</span></Label>
-            <select v-model="form.discountType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="RATE">정률 (%)</option>
-              <option value="AMOUNT">정액 (원)</option>
-            </select>
+            <Select v-model="form.discountType">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RATE">정률 (%)</SelectItem>
+                <SelectItem value="AMOUNT">정액 (원)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -266,10 +286,15 @@ useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.
 
         <div>
           <Label class="mb-1.5 block">유효기간 방식 <span class="text-destructive">*</span></Label>
-          <select v-model="form.validityType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="DAYS_FROM_DOWNLOAD">다운로드 후 N일</option>
-            <option value="FIXED_PERIOD">기간 지정</option>
-          </select>
+          <Select v-model="form.validityType">
+            <SelectTrigger class="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="DAYS_FROM_DOWNLOAD">다운로드 후 N일</SelectItem>
+              <SelectItem value="FIXED_PERIOD">기간 지정</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div v-if="form.validityType === 'DAYS_FROM_DOWNLOAD'">

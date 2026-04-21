@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { Promotion, PromotionFormState } from '~/types/marketing'
+import type { CategoryNode } from '~/types/content'
+import type { PromotionCreateBody } from '~/composables/useAdminPromotion'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,18 +15,18 @@ const toast = useToast()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const promotion = ref<any>(null)
-const categories = ref<any[]>([])
+const promotion = ref<Promotion | null>(null)
+const categories = ref<CategoryNode[]>([])
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
-const form = reactive<any>({
+const form = reactive<PromotionFormState>({
   isActive: true,
   name: '',
   discountType: 'RATE',
-  discountValue: null,
-  applicableCategories: [] as number[],
+  discountValue: undefined,
+  applicableCategories: [],
   startedAt: '',
   endedAt: ''
 })
@@ -35,11 +38,11 @@ const resetForm = () => {
     isActive: p.isActive ?? true,
     name: p.name ?? '',
     discountType: p.discountType ?? 'RATE',
-    discountValue: p.discountValue ?? null,
-    applicableCategories: (p.applicableCategories ?? p.categories?.map((c: any) => c.id) ?? []) as number[],
+    discountValue: p.discountValue ?? undefined,
+    applicableCategories: p.applicableCategories ?? [],
     startedAt: p.startedAt?.slice(0, 16) ?? '',
     endedAt: p.endedAt?.slice(0, 16) ?? ''
-  })
+  } satisfies PromotionFormState)
 }
 
 const load = async () => {
@@ -52,12 +55,12 @@ const load = async () => {
 }
 
 const loadCategories = async () => {
-  try { categories.value = (await categoryApi.list()) as any[] } catch { categories.value = [] }
+  try { categories.value = await categoryApi.list() } catch { categories.value = [] }
 }
 
 const flatCategories = computed(() => {
   const out: { id: number, name: string, depth: number }[] = []
-  const walk = (list: any[], depth: number) => {
+  const walk = (list: CategoryNode[] | undefined, depth: number) => {
     for (const c of list ?? []) {
       out.push({ id: c.id, name: c.name, depth })
       if (c.children?.length) walk(c.children, depth + 1)
@@ -73,6 +76,9 @@ const toggleCategory = (id: number) => {
   else form.applicableCategories.push(id)
 }
 
+const categoryName = (id: number): string =>
+  flatCategories.value.find(c => c.id === id)?.name ?? `#${id}`
+
 const startEdit = () => { editing.value = true }
 const cancelEdit = () => {
   if (isNew) return router.push('/promotions')
@@ -80,27 +86,27 @@ const cancelEdit = () => {
   resetForm()
 }
 
-const buildBody = () => ({
+/** submit 에서 name/discountValue/startedAt validation 후 호출. */
+const buildBody = (): PromotionCreateBody => ({
   isActive: form.isActive,
   name: form.name,
   discountType: form.discountType,
-  discountValue: Number(form.discountValue),
+  discountValue: Number(form.discountValue ?? 0),
   applicableCategories: form.applicableCategories.length ? form.applicableCategories : undefined,
-  startedAt: form.startedAt ? `${form.startedAt}:00` : undefined,
+  startedAt: `${form.startedAt}:00`,
   endedAt: form.endedAt ? `${form.endedAt}:00` : undefined
 })
 
 const submit = async () => {
   if (!form.name.trim()) return toast.error('할인명은 필수입니다.')
-  if (form.discountValue == null || form.discountValue <= 0) return toast.error('할인값은 0보다 커야 합니다.')
+  if (form.discountValue == null || Number(form.discountValue) <= 0) return toast.error('할인값은 0보다 커야 합니다.')
   if (!form.startedAt) return toast.error('시작일시는 필수입니다.')
   saving.value = true
   try {
     if (isNew) {
-      const res: any = await promotionApi.create(buildBody())
-      const newId = typeof res === 'object' ? (res.id ?? res) : res
+      const res = await promotionApi.create(buildBody())
       toast.success('프로모션을 등록했습니다.')
-      router.push(`/promotions/${newId}`)
+      router.push(`/promotions/${res.id}`)
     } else {
       await promotionApi.update(id, buildBody())
       toast.success('프로모션을 수정했습니다.')
@@ -151,10 +157,15 @@ useHead({ title: () => isNew ? '새 프로모션 | ZeroLabs Admin' : `${promotio
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">할인 방식 <span class="text-destructive">*</span></Label>
-            <select v-model="form.discountType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="RATE">정률 (%)</option>
-              <option value="AMOUNT">정액 (원)</option>
-            </select>
+            <Select v-model="form.discountType">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RATE">정률 (%)</SelectItem>
+                <SelectItem value="AMOUNT">정액 (원)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label class="mb-1.5 block">
@@ -224,21 +235,22 @@ useHead({ title: () => isNew ? '새 프로모션 | ZeroLabs Admin' : `${promotio
     <div v-else-if="promotion" class="space-y-6">
       <DetailSection title="프로모션 정보">
         <DetailField label="할인명" :value="promotion.name" full />
-        <DetailField label="설명" :value="promotion.description" full />
         <DetailField label="할인 방식" :value="promotion.discountType === 'RATE' ? '정률' : '정액'" />
         <DetailField label="할인값" :value="discountText" />
         <DetailField label="시작일시" :value="formatDate(promotion.startedAt)" />
-        <DetailField label="종료일시" :value="formatDate(promotion.endedAt)" />
-        <DetailField label="상태" :value="promotion.status" />
+        <DetailField label="종료일시" :value="promotion.endedAt ? formatDate(promotion.endedAt) : '상시'" />
         <DetailField label="활성화" :value="promotion.isActive ? '활성' : '비활성'" />
       </DetailSection>
 
-      <DetailSection v-if="promotion.categories?.length || promotion.applicableCategories?.length" title="적용 대상">
+      <DetailSection v-if="promotion.applicableCategories?.length" title="적용 대상">
         <div class="col-span-2 flex flex-wrap gap-1">
-          <Badge v-for="c in (promotion.categories ?? promotion.applicableCategories)" :key="c.id ?? c" variant="secondary">
-            {{ c.name ?? `#${c}` }}
+          <Badge v-for="catId in promotion.applicableCategories" :key="catId" variant="secondary">
+            {{ categoryName(catId) }}
           </Badge>
         </div>
+      </DetailSection>
+      <DetailSection v-else title="적용 대상">
+        <div class="col-span-2 text-sm text-muted-foreground">전체 상품</div>
       </DetailSection>
     </div>
 

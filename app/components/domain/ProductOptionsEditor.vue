@@ -165,7 +165,7 @@ const manualRegen = () => regenerate(props.options, props.variants)
           <Input
             :model-value="group.name"
             class="h-8 max-w-xs"
-            placeholder="옵션 그룹명 (예: 색상, 사이즈)"
+            placeholder="옵션 그룹명 (예: 맛, 중량, 연령대)"
             @update:model-value="(v) => updateGroupName(gi, String(v ?? ''))"
           />
           <Button
@@ -184,7 +184,7 @@ const manualRegen = () => regenerate(props.options, props.variants)
             <Input
               :model-value="val"
               class="h-7 w-28 text-sm"
-              placeholder="옵션값"
+              placeholder="예: 치킨, 200g"
               @update:model-value="(v) => updateValue(gi, vi, String(v ?? ''))"
               @blur="manualRegen"
             />
@@ -243,8 +243,9 @@ const manualRegen = () => regenerate(props.options, props.variants)
                   :model-value="v.additionalPrice"
                   type="number"
                   step="100"
+                  min="0"
                   class="h-8 text-sm w-28 ml-auto text-right"
-                  @update:model-value="(val) => updateVariant(i, { additionalPrice: val ?? 0 })"
+                  @update:model-value="(val) => updateVariant(i, { additionalPrice: Math.max(0, Number(val ?? 0)) })"
                 />
               </TableCell>
               <TableCell class="text-right">
@@ -252,8 +253,9 @@ const manualRegen = () => regenerate(props.options, props.variants)
                   :model-value="v.stockQuantity"
                   type="number"
                   step="1"
+                  min="0"
                   class="h-8 text-sm w-24 ml-auto text-right"
-                  @update:model-value="(val) => updateVariant(i, { stockQuantity: val ?? 0 })"
+                  @update:model-value="(val) => updateVariant(i, { stockQuantity: Math.max(0, Number(val ?? 0)) })"
                 />
               </TableCell>
             </TableRow>

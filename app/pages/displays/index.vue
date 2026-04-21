@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import type { DisplaySection } from '~/composables/useAdminDisplay'
+
+// Input v-model 바인딩용 non-null 문자열 필드
+interface DisplaySectionForm extends Omit<DisplaySection, 'title' | 'subtitle' | 'description' | 'linkUrl'> {
+  title: string
+  subtitle: string
+  description: string
+  linkUrl: string
+}
+
 useHead({ title: '전시 섹션 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
 
 const displayApi = useAdminDisplay()
 const toast = useToast()
 
-const sections = ref<any[]>([])
+const sections = ref<DisplaySectionForm[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const editing = ref(false)
@@ -16,8 +26,18 @@ const bannerPreview = ref<string>('')
 const load = async () => {
   loading.value = true
   try {
-    const data = (await displayApi.list()) as any[]
-    sections.value = data.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    const data = await displayApi.list()
+    // Input v-model 이 null 을 받지 못하므로 빈 문자열로 정규화
+    sections.value = data
+      .slice()
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map(s => ({
+        ...s,
+        title: s.title ?? '',
+        subtitle: s.subtitle ?? '',
+        description: s.description ?? '',
+        linkUrl: s.linkUrl ?? ''
+      }))
     bannerFile.value = null
     bannerPreview.value = ''
   } finally { loading.value = false }

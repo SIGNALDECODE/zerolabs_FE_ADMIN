@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { OrderListItem } from '~/types/order'
+import type { OrderStatus } from '~/types/common'
+import type { Carrier } from '~/composables/useAdminDelivery'
 
 useHead({ title: '주문 관리 | ZeroLabs Admin' })
 
@@ -8,41 +11,54 @@ const deliveryApi = useAdminDelivery()
 const router = useRouter()
 const toast = useToast()
 
-const orders = ref<any[]>([])
+const orders = ref<OrderListItem[]>([])
 const totalElements = ref(0)
 const loading = ref(false)
 const selectedIds = ref<number[]>([])
-const carriers = ref<any[]>([])
+const carriers = ref<Carrier[]>([])
 const changing = ref(false)
 
+const ALL = 'ALL'
+
 const filters = reactive({
-  status: '' as string,
+  status: ALL as string,
   keyword: '' as string,
   page: 1,
   size: 20
 })
 
-const bulkForm = reactive({
-  status: '',
+const bulkForm = reactive<{
+  status: string | undefined
+  reason: string
+  carrierId: number | null
+  trackingNumber: string
+}>({
+  status: undefined,
   reason: '',
-  carrierId: null as number | null,
+  carrierId: null,
   trackingNumber: ''
+})
+
+const bulkCarrierIdStr = computed<string | undefined>({
+  get: () => bulkForm.carrierId != null ? String(bulkForm.carrierId) : undefined,
+  set: v => { bulkForm.carrierId = v != null ? Number(v) : null }
 })
 
 const columns = [
   { key: 'select', label: '', width: '40px' },
   { key: 'orderNumber', label: '주문번호' },
-  { key: 'recipientName', label: '수령인' },
+  { key: 'productName', label: '대표 상품' },
+  { key: 'itemCount', label: '수량', align: 'center' as const, width: '70px' },
   { key: 'status', label: '상태' },
   { key: 'grandTotal', label: '금액', align: 'right' as const },
-  { key: 'createdAt', label: '주문일' }
+  { key: 'orderedAt', label: '주문일' }
 ]
 
 const loadOrders = async () => {
   loading.value = true
   try {
     const data = await orderApi.list({
-      status: filters.status || undefined,
+      status: filters.status === ALL ? undefined : filters.status,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -56,7 +72,7 @@ const loadOrders = async () => {
 }
 
 const loadCarriers = async () => {
-  try { carriers.value = (await deliveryApi.carriers()) as any[] } catch { carriers.value = [] }
+  try { carriers.value = await deliveryApi.carriers() } catch { carriers.value = [] }
 }
 
 const handleSearch = () => {
@@ -76,11 +92,11 @@ const toggleSelect = (id: number) => {
 
 const toggleAll = () => {
   if (selectedIds.value.length === orders.value.length) selectedIds.value = []
-  else selectedIds.value = orders.value.map(o => o.id ?? o.orderId)
+  else selectedIds.value = orders.value.map(o => o.id)
 }
 
 const resetBulkForm = () => {
-  bulkForm.status = ''
+  bulkForm.status = undefined
   bulkForm.reason = ''
   bulkForm.carrierId = null
   bulkForm.trackingNumber = ''
@@ -100,7 +116,7 @@ const applyBulkStatus = async () => {
   try {
     await orderApi.changeStatuses({
       orderIds: selectedIds.value,
-      status: bulkForm.status as any,
+      status: bulkForm.status as OrderStatus,
       reason: bulkForm.reason || undefined,
       carrierId: bulkForm.carrierId ?? undefined,
       trackingNumber: bulkForm.trackingNumber || undefined
@@ -121,16 +137,21 @@ onMounted(() => { loadOrders(); loadCarriers() })
     <PageHeader title="주문 관리" :description="`총 ${totalElements.toLocaleString()}건`" />
 
     <FilterBar @search="handleSearch">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="PENDING">입금대기</option>
-        <option value="PAID">결제완료</option>
-        <option value="PREPARING">배송준비</option>
-        <option value="SHIPPING">배송중</option>
-        <option value="DELIVERED">배송완료</option>
-        <option value="COMPLETED">구매확정</option>
-        <option value="CANCELLED">취소</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-40">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="PENDING">입금대기</SelectItem>
+          <SelectItem value="PAID">결제완료</SelectItem>
+          <SelectItem value="PREPARING">배송준비</SelectItem>
+          <SelectItem value="SHIPPING">배송중</SelectItem>
+          <SelectItem value="DELIVERED">배송완료</SelectItem>
+          <SelectItem value="COMPLETED">구매확정</SelectItem>
+          <SelectItem value="CANCELLED">취소</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="주문번호 / 수령인 검색" class="max-w-xs" @keyup.enter="handleSearch" />
     </FilterBar>
 
@@ -150,24 +171,32 @@ onMounted(() => { loadOrders(); loadCarriers() })
         <div class="flex flex-wrap items-end gap-2">
           <div>
             <Label class="mb-1.5 block text-xs">변경할 상태</Label>
-            <select v-model="bulkForm.status" class="h-10 w-40 rounded-md border border-input bg-background px-3 text-sm">
-              <option value="">선택…</option>
-              <option value="PAID">결제완료</option>
-              <option value="PREPARING">배송준비</option>
-              <option value="SHIPPING">배송중</option>
-              <option value="DELIVERED">배송완료</option>
-              <option value="COMPLETED">구매확정</option>
-              <option value="CANCELLED">주문취소</option>
-            </select>
+            <Select v-model="bulkForm.status">
+              <SelectTrigger class="w-40">
+                <SelectValue placeholder="선택…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PAID">결제완료</SelectItem>
+                <SelectItem value="PREPARING">배송준비</SelectItem>
+                <SelectItem value="SHIPPING">배송중</SelectItem>
+                <SelectItem value="DELIVERED">배송완료</SelectItem>
+                <SelectItem value="COMPLETED">구매확정</SelectItem>
+                <SelectItem value="CANCELLED">주문취소</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <template v-if="bulkForm.status === 'SHIPPING'">
             <div>
               <Label class="mb-1.5 block text-xs">택배사 <span class="text-destructive">*</span></Label>
-              <select v-model="bulkForm.carrierId" class="h-10 w-40 rounded-md border border-input bg-background px-3 text-sm">
-                <option :value="null">선택…</option>
-                <option v-for="c in carriers" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
+              <Select v-model="bulkCarrierIdStr">
+                <SelectTrigger class="w-40">
+                  <SelectValue placeholder="선택…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="c in carriers" :key="c.id" :value="String(c.id)">{{ c.name }}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label class="mb-1.5 block text-xs">송장번호 <span class="text-destructive">*</span></Label>
@@ -198,19 +227,32 @@ onMounted(() => { loadOrders(); loadCarriers() })
       :loading="loading"
       empty-message="주문이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/orders/${row.id ?? row.orderId}`)"
+      @row-click="(row: OrderListItem) => router.push(`/orders/${row.id}`)"
     >
       <template #cell-select="{ row }">
         <input
           type="checkbox"
-          :checked="selectedIds.includes(row.id ?? row.orderId)"
+          :checked="selectedIds.includes(row.id)"
           class="h-4 w-4"
           @click.stop
-          @change="toggleSelect(row.id ?? row.orderId)"
+          @change="toggleSelect(row.id)"
         />
       </template>
       <template #cell-orderNumber="{ row }">
         <span class="font-mono text-xs">{{ row.orderNumber }}</span>
+      </template>
+      <template #cell-productName="{ row }">
+        <div class="flex items-center gap-2 min-w-0">
+          <img
+            v-if="row.productThumbnailUrl"
+            :src="row.productThumbnailUrl"
+            class="h-8 w-8 rounded border object-cover shrink-0"
+          />
+          <span class="truncate">{{ row.productName ?? '-' }}</span>
+        </div>
+      </template>
+      <template #cell-itemCount="{ row }">
+        <span class="text-sm">{{ row.itemCount ?? 0 }}</span>
       </template>
       <template #cell-status="{ row }">
         <StatusBadge :status="row.status" />
@@ -218,8 +260,8 @@ onMounted(() => { loadOrders(); loadCarriers() })
       <template #cell-grandTotal="{ row }">
         {{ formatCurrency(row.grandTotal) }}
       </template>
-      <template #cell-createdAt="{ row }">
-        <span class="text-muted-foreground text-xs">{{ formatDate(row.createdAt) }}</span>
+      <template #cell-orderedAt="{ row }">
+        <span class="text-muted-foreground text-xs">{{ formatDate(row.orderedAt) }}</span>
       </template>
     </DataTable>
 

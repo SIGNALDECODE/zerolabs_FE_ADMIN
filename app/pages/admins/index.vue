@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { AdminListItem } from '~/types/user'
 
 useHead({ title: '관리자 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,14 +8,16 @@ definePageMeta({ layout: 'default' })
 const adminsApi = useAdmins()
 const router = useRouter()
 
-const admins = ref<any[]>([])
+const admins = ref<AdminListItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 
+const ALL = 'ALL'
+
 const filters = reactive({
   keyword: '',
-  userType: '',
-  status: '',
+  userType: ALL as string,
+  status: ALL as string,
   page: 1,
   size: 30
 })
@@ -24,8 +27,8 @@ const columns = [
   { key: 'name', label: '이름' },
   { key: 'role', label: '권한' },
   { key: 'status', label: '상태' },
-  { key: 'lastLoginAt', label: '최근 로그인' },
-  { key: 'createdAt', label: '가입일' }
+  { key: 'phone', label: '연락처' },
+  { key: 'created_at', label: '가입일' }
 ]
 
 const roleLabels: Record<string, string> = {
@@ -35,15 +38,20 @@ const roleLabels: Record<string, string> = {
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await adminsApi.list({
+    const data = await adminsApi.list({
       keyword: filters.keyword || undefined,
-      userType: filters.userType || undefined,
-      status: filters.status || undefined,
+      userType: filters.userType === ALL ? undefined : filters.userType,
+      status: filters.status === ALL ? undefined : filters.status,
       page: filters.page,
       size: filters.size
     })
-    admins.value = data?.content ?? data ?? []
-    total.value = data?.totalElements ?? admins.value.length
+    if (Array.isArray(data)) {
+      admins.value = data
+      total.value = data.length
+    } else {
+      admins.value = data?.content ?? []
+      total.value = data?.totalElements ?? admins.value.length
+    }
   } finally {
     loading.value = false
   }
@@ -68,17 +76,27 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.userType" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 권한</option>
-        <option value="ADMIN">최고관리자</option>
-        <option value="STAFF">운영자</option>
-      </select>
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="ACTIVE">활성</option>
-        <option value="SUSPENDED">정지</option>
-        <option value="WITHDRAWN">탈퇴</option>
-      </select>
+      <Select v-model="filters.userType">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 권한</SelectItem>
+          <SelectItem value="ADMIN">최고관리자</SelectItem>
+          <SelectItem value="STAFF">운영자</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="ACTIVE">활성</SelectItem>
+          <SelectItem value="SUSPENDED">정지</SelectItem>
+          <SelectItem value="WITHDRAWN">탈퇴</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="이름 / 이메일 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -88,22 +106,22 @@ onMounted(load)
       :loading="loading"
       empty-message="관리자가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/admins/${row.id}`)"
+      @row-click="(row: AdminListItem) => router.push(`/admins/${row.id}`)"
     >
       <template #cell-email="{ row }">
         <span class="font-medium">{{ row.email }}</span>
       </template>
       <template #cell-role="{ row }">
-        <Badge variant="outline">{{ roleLabels[row.userType ?? row.role] ?? row.userType ?? row.role }}</Badge>
+        <Badge variant="outline">{{ roleLabels[row.role ?? ''] ?? row.role }}</Badge>
       </template>
       <template #cell-status="{ row }">
         <StatusBadge :status="row.status" />
       </template>
-      <template #cell-lastLoginAt="{ row }">
-        <span class="text-muted-foreground text-xs">{{ formatDate(row.lastLoginAt) }}</span>
+      <template #cell-phone="{ row }">
+        <span class="text-muted-foreground text-sm">{{ row.phone ?? '-' }}</span>
       </template>
-      <template #cell-createdAt="{ row }">
-        <span class="text-muted-foreground text-xs">{{ formatDate(row.createdAt) }}</span>
+      <template #cell-created_at="{ row }">
+        <span class="text-muted-foreground text-xs">{{ formatDate(row.created_at) }}</span>
       </template>
     </DataTable>
 

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { OrderDetail, OrderItem } from '~/types/order'
+import type { RefundRecord } from '~/types/claim'
+import type { ClaimType, ClaimReasonType } from '~/types/common'
 
 useHead({ title: '환불 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -10,20 +13,27 @@ const router = useRouter()
 const toast = useToast()
 
 const orderIdInput = ref('')
-const refunds = ref<any[]>([])
-const order = ref<any>(null)
+const refunds = ref<RefundRecord[]>([])
+const order = ref<OrderDetail | null>(null)
 const loading = ref(false)
 const searchedOrderId = ref<number | null>(null)
 
 const processOpen = ref(false)
 const processing = ref(false)
-const processForm = reactive({
-  claimType: 'CANCEL' as 'CANCEL' | 'RETURN' | 'EXCHANGE',
+const processForm = reactive<{
+  claimType: ClaimType
+  reasonType: ClaimReasonType
+  reason: string
+  amount: string | number
+  restoreStock: boolean
+  items: { orderItemId: number, quantity: number, max: number, productName?: string, selected: boolean }[]
+}>({
+  claimType: 'CANCEL',
   reasonType: 'CHANGE_OF_MIND',
   reason: '',
-  amount: '' as string | number,
+  amount: '',
   restoreStock: true,
-  items: [] as { orderItemId: number, quantity: number, max: number, productName?: string, selected: boolean }[]
+  items: []
 })
 
 const search = async () => {
@@ -55,8 +65,8 @@ const openProcess = () => {
   processForm.reason = ''
   processForm.amount = ''
   processForm.restoreStock = true
-  processForm.items = (order.value?.items ?? []).map((it: any) => ({
-    orderItemId: it.orderItemId ?? it.id,
+  processForm.items = (order.value?.items ?? []).map((it: OrderItem) => ({
+    orderItemId: it.orderItemId,
     productName: [it.productName, it.variantName].filter(Boolean).join(' / '),
     quantity: it.quantity ?? 1,
     max: it.quantity ?? 1,
@@ -125,7 +135,7 @@ const statusLabels: Record<string, string> = {
               <span class="text-muted-foreground text-sm font-normal ml-2">· 환불 {{ refunds.length }}건</span>
             </CardTitle>
             <CardDescription v-if="order">
-              {{ order.orderNumber }} · 총 {{ formatCurrency(order.summary?.grandTotal ?? order.grandTotal) }}
+              {{ order.orderNumber }} · 총 {{ formatCurrency(order.summary?.grandTotal) }}
             </CardDescription>
           </div>
           <div class="flex items-center gap-2">
@@ -201,22 +211,32 @@ const statusLabels: Record<string, string> = {
           <div class="grid grid-cols-2 gap-3">
             <div>
               <Label class="mb-1.5 block text-xs">클레임 유형 <span class="text-destructive">*</span></Label>
-              <select v-model="processForm.claimType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="CANCEL">취소</option>
-                <option value="RETURN">반품</option>
-                <option value="EXCHANGE">교환</option>
-              </select>
+              <Select v-model="processForm.claimType">
+                <SelectTrigger class="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CANCEL">취소</SelectItem>
+                  <SelectItem value="RETURN">반품</SelectItem>
+                  <SelectItem value="EXCHANGE">교환</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label class="mb-1.5 block text-xs">사유 유형 <span class="text-destructive">*</span></Label>
-              <select v-model="processForm.reasonType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option value="CHANGE_OF_MIND">단순 변심</option>
-                <option value="DEFECTIVE">상품 불량</option>
-                <option value="WRONG_DELIVERY">오배송</option>
-                <option value="DELAYED_DELIVERY">배송 지연</option>
-                <option value="OUT_OF_STOCK">품절</option>
-                <option value="OTHER">기타</option>
-              </select>
+              <Select v-model="processForm.reasonType">
+                <SelectTrigger class="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CHANGE_OF_MIND">단순 변심</SelectItem>
+                  <SelectItem value="DEFECTIVE">상품 불량</SelectItem>
+                  <SelectItem value="WRONG_DELIVERY">오배송</SelectItem>
+                  <SelectItem value="DELAYED_DELIVERY">배송 지연</SelectItem>
+                  <SelectItem value="OUT_OF_STOCK">품절</SelectItem>
+                  <SelectItem value="OTHER">기타</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

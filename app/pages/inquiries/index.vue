@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { InquiryListItem } from '~/types/content'
 
 useHead({ title: '1:1 문의 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -9,19 +10,26 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 
-const inquiries = ref<any[]>([])
+const ALL = 'ALL'
+
+type InquiryTypeOption = { code: string, description: string } | string
+
+const inquiries = ref<InquiryListItem[]>([])
 const total = ref(0)
 const loading = ref(false)
-const types = ref<any[]>([])
+const types = ref<InquiryTypeOption[]>([])
 const selectedIds = ref<number[]>([])
 
 const filters = reactive({
-  status: '',
-  inquiryType: '',
+  status: ALL as string,
+  inquiryType: ALL as string,
   keyword: '',
   page: 1,
   size: 30
 })
+
+const typeCode = (t: InquiryTypeOption): string => typeof t === 'string' ? t : t.code
+const typeLabel = (t: InquiryTypeOption): string => typeof t === 'string' ? t : t.description
 
 const columns = [
   { key: 'select', label: '', width: '40px' },
@@ -40,9 +48,9 @@ const statusLabels: Record<string, string> = {
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await inquiryApi.list({
-      status: filters.status || undefined,
-      inquiryType: filters.inquiryType || undefined,
+    const data = await inquiryApi.list({
+      status: filters.status === ALL ? undefined : filters.status,
+      inquiryType: filters.inquiryType === ALL ? undefined : filters.inquiryType,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -54,7 +62,7 @@ const load = async () => {
 }
 
 const loadTypes = async () => {
-  try { types.value = await inquiryApi.types() as any[] } catch { types.value = [] }
+  try { types.value = await inquiryApi.types() } catch { types.value = [] }
 }
 
 const search = () => { filters.page = 1; load() }
@@ -111,17 +119,27 @@ onMounted(() => {
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="WAITING">대기</option>
-        <option value="ANSWERED">답변완료</option>
-      </select>
-      <select v-model="filters.inquiryType" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 유형</option>
-        <option v-for="t in types" :key="t.code ?? t" :value="t.code ?? t">
-          {{ t.description ?? t.label ?? t }}
-        </option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="WAITING">대기</SelectItem>
+          <SelectItem value="ANSWERED">답변완료</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select v-model="filters.inquiryType">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 유형</SelectItem>
+          <SelectItem v-for="t in types" :key="typeCode(t)" :value="typeCode(t)">
+            {{ typeLabel(t) }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="제목 / 이름 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -131,7 +149,7 @@ onMounted(() => {
       :loading="loading"
       empty-message="문의가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/inquiries/${row.id}`)"
+      @row-click="(row: InquiryListItem) => router.push(`/inquiries/${row.id}`)"
     >
       <template #cell-select="{ row }">
         <input

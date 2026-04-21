@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Qna } from '~/types/content'
 
 definePageMeta({ layout: 'default' })
 
@@ -7,10 +8,11 @@ const route = useRoute()
 const router = useRouter()
 const qnaApi = useAdminQna()
 const confirm = useConfirm()
+const toast = useToast()
 
 const id = Number(route.params.id)
 
-const qna = ref<any>(null)
+const qna = ref<Qna | null>(null)
 const loading = ref(true)
 const answer = ref('')
 const saving = ref(false)
@@ -41,8 +43,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await qnaApi.remove(id)
-  router.push('/qnas')
+  try {
+    await qnaApi.remove(id)
+    toast.success('Q&A 를 삭제했습니다.')
+    router.push('/qnas')
+  } catch (e) {
+    toast.error(e, 'Q&A 삭제 실패')
+  }
 }
 
 onMounted(load)

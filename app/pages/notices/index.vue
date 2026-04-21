@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate, formatNumber } from '~/utils/format'
+import type { NoticeListItem } from '~/types/content'
 
 useHead({ title: '공지사항 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,13 +8,15 @@ definePageMeta({ layout: 'default' })
 const noticeApi = useAdminNotice()
 const router = useRouter()
 
-const notices = ref<any[]>([])
+const ALL = 'ALL'
+
+const notices = ref<NoticeListItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  status: '',
-  type: '',
+  status: ALL as string,
+  type: ALL as string,
   keyword: '',
   page: 1,
   size: 30
@@ -32,9 +35,9 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await noticeApi.list({
-      status: filters.status || undefined,
-      type: filters.type || undefined,
+    const data = await noticeApi.list({
+      status: filters.status === ALL ? undefined : filters.status,
+      type: filters.type === ALL ? undefined : filters.type,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -63,18 +66,28 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.type" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 유형</option>
-        <option value="NOTICE">공지사항</option>
-        <option value="INSPECTION">점검</option>
-        <option value="GUIDELINES">안내</option>
-        <option value="EVENT">이벤트</option>
-      </select>
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="ACTIVE">노출</option>
-        <option value="INACTIVE">비노출</option>
-      </select>
+      <Select v-model="filters.type">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 유형</SelectItem>
+          <SelectItem value="NOTICE">공지사항</SelectItem>
+          <SelectItem value="INSPECTION">점검</SelectItem>
+          <SelectItem value="GUIDELINES">안내</SelectItem>
+          <SelectItem value="EVENT">이벤트</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="ACTIVE">노출</SelectItem>
+          <SelectItem value="INACTIVE">비노출</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="제목 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -84,7 +97,7 @@ onMounted(load)
       :loading="loading"
       empty-message="공지사항이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/notices/${row.id}`)"
+      @row-click="(row: NoticeListItem) => router.push(`/notices/${row.id}`)"
     >
       <template #cell-id="{ row }">
         <span class="text-muted-foreground text-xs">{{ row.id }}</span>

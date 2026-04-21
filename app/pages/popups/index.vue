@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Popup } from '~/types/marketing'
 
 useHead({ title: '팝업 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -9,12 +10,14 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 
-const popups = ref<any[]>([])
+const ALL = 'ALL'
+
+const popups = ref<Popup[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  status: '',
+  status: ALL as string,
   page: 1,
   size: 30
 })
@@ -32,8 +35,8 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await popupApi.list({
-      status: filters.status || undefined,
+    const data = await popupApi.list({
+      status: filters.status === ALL ? undefined : filters.status,
       page: filters.page,
       size: filters.size
     })
@@ -45,7 +48,7 @@ const load = async () => {
 const search = () => { filters.page = 1; load() }
 const goPage = (p: number) => { filters.page = p; load() }
 
-const remove = async (p: any) => {
+const remove = async (p: Popup) => {
   const ok = await confirm.ask('팝업 삭제', {
     description: `"${p.name}"을(를) 삭제합니다.`,
     confirmText: '삭제',
@@ -73,11 +76,16 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="ACTIVE">활성</option>
-        <option value="INACTIVE">비활성</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="ACTIVE">활성</SelectItem>
+          <SelectItem value="INACTIVE">비활성</SelectItem>
+        </SelectContent>
+      </Select>
     </FilterBar>
 
     <DataTable
@@ -86,7 +94,7 @@ onMounted(load)
       :loading="loading"
       empty-message="팝업이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/popups/${row.id}`)"
+      @row-click="(row: Popup) => router.push(`/popups/${row.id}`)"
     >
       <template #cell-image="{ row }">
         <img v-if="row.image" :src="row.image" class="h-10 w-10 rounded object-cover" />

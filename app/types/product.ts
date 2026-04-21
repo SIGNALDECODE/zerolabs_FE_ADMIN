@@ -48,6 +48,11 @@ export interface ProductVariant {
   optionValueIds?: number[]
 }
 
+/**
+ * 백엔드 ProductResponse 와 1:1 매핑.
+ * 가격 필드는 DTO 상 top-level (price 객체로 래핑되어 있지 않음).
+ * 이미지는 primaryImage 단일 객체 (multi-image 는 아직 미지원).
+ */
 export interface ProductDetail {
   id: number
   name: string
@@ -56,22 +61,54 @@ export interface ProductDetail {
   productType?: string
   status: ProductStatus
   categories?: ProductCategory[]
-  brand?: ProductBrand | null
-  price?: {
-    regularPrice?: number
-    salePrice?: number
-    finalPrice?: number
-    costPrice?: number
-    discountType?: DiscountType
-    discountValue?: number
-  }
-  viewCount?: number
-  images?: ProductImage[]
-  optionGroups?: ProductOptionGroup[]
-  variants?: ProductVariant[]
   tags?: ProductTag[]
+  brand?: ProductBrand | null
+  costPrice?: number | null
+  regularPrice?: number | null
+  salePrice?: number | null
+  discountType?: DiscountType | null
+  discountValue?: number | null
   maxPurchaseQuantity?: number | null
+  viewCount?: number
+  primaryImage?: ProductImage | null
+  options?: ProductOptionGroup[]
+  variants?: ProductVariant[]
   saleStartedAt?: string | null
   saleEndedAt?: string | null
   createdAt?: string
+}
+
+/**
+ * 폼/요청 측 타입
+ * - shape 는 app/components/domain/ProductOptionsEditor.vue 의 OptionGroup/Variant 와 일치해야 함.
+ */
+export interface ProductOptionGroupForm {
+  name: string
+  optionValues: string[]
+}
+
+export interface ProductVariantForm {
+  sku: string
+  name: string
+  additionalPrice: number | string
+  stockQuantity: number | string
+  optionValueIds: number[]
+}
+
+export interface ProductFormState {
+  name: string
+  summary: string
+  description: string
+  categoryIds: number[]
+  tagIds: number[]
+  costPrice: number | string | undefined
+  regularPrice: number | string | undefined
+  salePrice: number | string | undefined
+  discountType: DiscountType
+  discountValue: number | string
+  status: ProductStatus
+  maxPurchaseQuantity: number | string | undefined
+  primaryImageAltText: string
+  options: ProductOptionGroupForm[]
+  variants: ProductVariantForm[]
 }

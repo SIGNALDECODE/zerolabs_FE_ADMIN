@@ -46,11 +46,30 @@ export interface CouponDetail {
   updatedAt?: string
 }
 
+export interface CouponFormState {
+  name: string
+  description: string
+  notice: string
+  couponType: CouponType
+  discountType: DiscountType
+  discountValue: number | string | undefined
+  maxDiscountAmount: number | string | undefined
+  minOrderAmount: number | string
+  totalQuantity: number | string | undefined
+  validityType: ValidityType
+  validityDays: number | string
+  validFrom: string
+  validTo: string
+  allowPromotionOverlap: boolean
+  allowDuplicateUse: boolean
+}
+
 export interface Banner {
   id: number
   title: string
   position: BannerPosition
   imageUrl: string
+  mobileImageUrl?: string | null
   linkUrl?: string | null
   sortOrder?: number
   status: BannerStatus
@@ -58,6 +77,19 @@ export interface Banner {
   endedAt?: string | null
   noEndDate?: boolean
   createdAt?: string
+}
+
+export interface BannerFormState {
+  title: string
+  position: BannerPosition
+  imageUrl: string
+  mobileImageUrl: string
+  linkUrl: string
+  sortOrder: number | string
+  status: BannerStatus
+  startedAt: string
+  endedAt: string
+  noEndDate: boolean
 }
 
 export interface Popup {
@@ -74,18 +106,48 @@ export interface Popup {
   endedAt?: string | null
 }
 
+export interface PopupFormState {
+  name: string
+  status: PopupStatus
+  image: string
+  linkUrl: string
+  linkTarget: PopupLinkTarget
+  closeOption: PopupCloseOption
+  popupType: PopupType
+  sortOrder: number | string
+  startedAt: string
+  endedAt: string
+}
+
+/**
+ * 프로모션 — 백엔드는 list/detail 응답이 서로 다른 shape 이다.
+ * - List (PromotionListResponse): `applicableTarget` (요약 문자열), `status` (진행중/예정 등 문자열)
+ * - Detail (PromotionDetailResponse): `isActive`, `applicableCategories: number[]` (카테고리 ID 목록만)
+ * 카테고리명은 BE 가 응답에 포함하지 않으므로 FE 에서 별도 조회 후 매핑.
+ */
 export interface Promotion {
   id: number
   name: string
-  description?: string | null
   discountType: DiscountType
   discountValue: number
-  applicableTarget?: string
   startedAt?: string
   endedAt?: string | null
+  /** list 전용 */
+  applicableTarget?: string
+  /** list 전용 (예: "진행중", "예정", "비활성", "종료") */
   status?: string
+  /** detail 전용 */
   isActive?: boolean
-  categories?: { id: number, name: string }[]
+  /** detail 전용 — 카테고리 ID 목록. 이름은 FE 에서 categories 조회로 매핑 */
   applicableCategories?: number[]
-  createdAt?: string
+}
+
+export interface PromotionFormState {
+  isActive: boolean
+  name: string
+  discountType: DiscountType
+  discountValue: number | string | undefined
+  applicableCategories: number[]
+  startedAt: string
+  endedAt: string
 }

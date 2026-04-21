@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { formatDate, formatNumber, formatPhone } from '~/utils/format'
+import { formatCurrency, formatDate, formatNumber, formatPhone } from '~/utils/format'
+import type { PageResponse } from '~/types/api'
+import type { UserListItem } from '~/types/user'
 
 useHead({ title: '회원 관리 | ZeroLabs Admin' })
 
 const api = useApi()
 const router = useRouter()
 
-const users = ref<any[]>([])
+const users = ref<UserListItem[]>([])
 const totalElements = ref(0)
 const loading = ref(false)
+
+const ALL = 'ALL'
 
 const filters = reactive({
   searchType: '',
   keyword: '',
-  status: '',
+  status: ALL as string,
   grade: '',
   page: 1,
   size: 30
@@ -24,24 +28,25 @@ const columns = [
   { key: 'name', label: '이름' },
   { key: 'phone', label: '전화번호' },
   { key: 'grade', label: '등급' },
-  { key: 'point', label: '포인트', align: 'right' as const },
+  { key: 'order_count', label: '주문', align: 'right' as const },
+  { key: 'total_order_amount', label: '누적구매', align: 'right' as const },
   { key: 'status', label: '상태' },
-  { key: 'createdAt', label: '가입일' }
+  { key: 'created_at', label: '가입일' }
 ]
 
 const load = async () => {
   loading.value = true
   try {
-    const data = await api.get('/admin/users', {
+    const data = await api.get<PageResponse<UserListItem>>('/admin/users', {
       searchType: filters.searchType || undefined,
       keyword: filters.keyword || undefined,
-      status: filters.status || undefined,
+      status: filters.status === ALL ? undefined : filters.status,
       grade: filters.grade || undefined,
       page: filters.page,
       size: filters.size
-    }) as any
-    users.value = data?.content || []
-    totalElements.value = data?.totalElements || 0
+    })
+    users.value = data?.content ?? []
+    totalElements.value = data?.totalElements ?? 0
   } finally {
     loading.value = false
   }
@@ -65,13 +70,18 @@ onMounted(load)
 
     <FilterBar @search="handleSearch">
       <Input v-model="filters.keyword" placeholder="이름 / 이메일 / 전화번호" class="max-w-xs" @keyup.enter="handleSearch" />
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="ACTIVE">활성</option>
-        <option value="INACTIVE">비활성</option>
-        <option value="SUSPENDED">정지</option>
-        <option value="WITHDRAWN">탈퇴</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="ACTIVE">활성</SelectItem>
+          <SelectItem value="INACTIVE">비활성</SelectItem>
+          <SelectItem value="SUSPENDED">정지</SelectItem>
+          <SelectItem value="WITHDRAWN">탈퇴</SelectItem>
+        </SelectContent>
+      </Select>
     </FilterBar>
 
     <DataTable
@@ -80,7 +90,7 @@ onMounted(load)
       :loading="loading"
       empty-message="회원이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/users/${row.id}`)"
+      @row-click="(row: UserListItem) => router.push(`/users/${row.user_id}`)"
     >
       <template #cell-email="{ row }">
         <span class="font-medium">{{ row.email }}</span>
@@ -91,14 +101,17 @@ onMounted(load)
       <template #cell-grade="{ row }">
         {{ row.grade?.name ?? '-' }}
       </template>
-      <template #cell-point="{ row }">
-        {{ formatNumber(row.point?.currentPoint ?? 0) }}
+      <template #cell-order_count="{ row }">
+        {{ formatNumber(row.order_count ?? 0) }}
+      </template>
+      <template #cell-total_order_amount="{ row }">
+        {{ formatCurrency(row.total_order_amount) }}
       </template>
       <template #cell-status="{ row }">
         <StatusBadge :status="row.status" />
       </template>
-      <template #cell-createdAt="{ row }">
-        <span class="text-muted-foreground text-xs">{{ formatDate(row.createdAt) }}</span>
+      <template #cell-created_at="{ row }">
+        <span class="text-muted-foreground text-xs">{{ formatDate(row.created_at) }}</span>
       </template>
     </DataTable>
 

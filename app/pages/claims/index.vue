@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { ClaimListItem } from '~/types/claim'
 
 useHead({ title: '클레임 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,14 +8,16 @@ definePageMeta({ layout: 'default' })
 const claimApi = useAdminClaim()
 const router = useRouter()
 
-const claims = ref<any[]>([])
+const ALL = 'ALL'
+
+const claims = ref<ClaimListItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  claimType: '',
-  status: '',
-  searchType: 'ORDER_NUMBER',
+  claimType: ALL as string,
+  status: ALL as string,
+  searchType: 'ORDER_NUMBER' as string,
   keyword: '',
   page: 1,
   size: 30
@@ -35,9 +38,9 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await claimApi.list({
-      claimType: filters.claimType || undefined,
-      status: filters.status || undefined,
+    const data = await claimApi.list({
+      claimType: filters.claimType === ALL ? undefined : filters.claimType,
+      status: filters.status === ALL ? undefined : filters.status,
       searchType: filters.keyword ? filters.searchType : undefined,
       keyword: filters.keyword || undefined,
       page: filters.page,
@@ -55,13 +58,13 @@ const goPage = (p: number) => { filters.page = p; load() }
 
 watchDebounced(() => filters.keyword, search, { debounce: 400 })
 
-const goDetail = (claim: any) => {
+const goDetail = (claim: ClaimListItem) => {
   router.push(`/claims/${claim.id}?orderId=${claim.orderId}`)
 }
 
 const reset = () => {
-  filters.claimType = ''
-  filters.status = ''
+  filters.claimType = ALL
+  filters.status = ALL
   filters.keyword = ''
   filters.page = 1
   load()
@@ -75,27 +78,42 @@ onMounted(load)
     <PageHeader title="클레임 관리" :description="`총 ${total.toLocaleString()}건 · 취소/반품/교환`" />
 
     <FilterBar @search="search">
-      <select v-model="filters.claimType" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 유형</option>
-        <option value="CANCEL">취소</option>
-        <option value="RETURN">반품</option>
-        <option value="EXCHANGE">교환</option>
-      </select>
+      <Select v-model="filters.claimType">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 유형</SelectItem>
+          <SelectItem value="CANCEL">취소</SelectItem>
+          <SelectItem value="RETURN">반품</SelectItem>
+          <SelectItem value="EXCHANGE">교환</SelectItem>
+        </SelectContent>
+      </Select>
 
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="REQUESTED">접수</option>
-        <option value="APPROVED">승인</option>
-        <option value="IN_PROGRESS">처리중</option>
-        <option value="COMPLETED">완료</option>
-        <option value="REJECTED">거절</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="REQUESTED">접수</SelectItem>
+          <SelectItem value="APPROVED">승인</SelectItem>
+          <SelectItem value="IN_PROGRESS">처리중</SelectItem>
+          <SelectItem value="COMPLETED">완료</SelectItem>
+          <SelectItem value="REJECTED">거절</SelectItem>
+        </SelectContent>
+      </Select>
 
-      <select v-model="filters.searchType" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="ORDER_NUMBER">주문번호</option>
-        <option value="USER_ID">회원 ID</option>
-        <option value="PHONE">전화번호</option>
-      </select>
+      <Select v-model="filters.searchType">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="ORDER_NUMBER">주문번호</SelectItem>
+          <SelectItem value="USER_ID">회원 ID</SelectItem>
+          <SelectItem value="PHONE">전화번호</SelectItem>
+        </SelectContent>
+      </Select>
 
       <Input v-model="filters.keyword" placeholder="검색어" class="max-w-xs" @keyup.enter="search" />
 

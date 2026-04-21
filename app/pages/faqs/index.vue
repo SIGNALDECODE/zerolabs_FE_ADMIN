@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Faq, FaqCategory } from '~/types/content'
 
 useHead({ title: 'FAQ | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -9,13 +10,15 @@ const router = useRouter()
 const toast = useToast()
 const prompt = usePrompt()
 
-const faqs = ref<any[]>([])
-const categories = ref<any[]>([])
+const ALL = 'ALL'
+
+const faqs = ref<Faq[]>([])
+const categories = ref<FaqCategory[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  categoryId: '',
+  categoryId: ALL as string,
   keyword: '',
   page: 1,
   size: 30
@@ -32,8 +35,8 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await faqApi.list({
-      categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
+    const data = await faqApi.list({
+      categoryId: filters.categoryId === ALL ? undefined : Number(filters.categoryId),
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -44,7 +47,7 @@ const load = async () => {
 }
 
 const loadCategories = async () => {
-  try { categories.value = (await faqApi.categories()) as any[] } catch { categories.value = [] }
+  try { categories.value = await faqApi.categories() } catch { categories.value = [] }
 }
 
 const search = () => { filters.page = 1; load() }
@@ -81,12 +84,17 @@ onMounted(() => { load(); loadCategories() })
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.categoryId" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 카테고리</option>
-        <option v-for="c in categories" :key="c.id" :value="c.id">
-          {{ c.name }}{{ c.isActive === false ? ' (비활성)' : '' }}
-        </option>
-      </select>
+      <Select v-model="filters.categoryId">
+        <SelectTrigger class="w-44">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 카테고리</SelectItem>
+          <SelectItem v-for="c in categories" :key="c.id" :value="String(c.id)">
+            {{ c.name }}{{ c.isActive === false ? ' (비활성)' : '' }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="질문 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -96,7 +104,7 @@ onMounted(() => { load(); loadCategories() })
       :loading="loading"
       empty-message="FAQ 가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/faqs/${row.id}`)"
+      @row-click="(row: Faq) => router.push(`/faqs/${row.id}`)"
     >
       <template #cell-id="{ row }">
         <span class="text-muted-foreground text-xs">{{ row.id }}</span>

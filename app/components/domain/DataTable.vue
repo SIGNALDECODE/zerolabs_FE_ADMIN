@@ -1,5 +1,9 @@
-<script setup lang="ts" generic="T extends Record<string, any>">
-interface Column<T> {
+<script setup lang="ts" generic="T extends Record<string, unknown>">
+/**
+ * Column.key 는 slot name 으로도 쓰여 `select`, `period`, `actions` 같은 **가상 key**
+ * (실제 row 필드가 아닌 slot 전용) 도 허용해야 한다. 그래서 `string` 으로 둔다.
+ */
+interface Column {
   key: string
   label: string
   width?: string
@@ -8,16 +12,16 @@ interface Column<T> {
 }
 
 interface Props {
-  columns: Column<T>[]
+  columns: Column[]
   rows: T[]
   loading?: boolean
-  rowKey?: keyof T | ((row: T) => string | number)
+  rowKey?: string | ((row: T) => string | number)
   emptyMessage?: string
   clickable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  rowKey: 'id' as any,
+  rowKey: 'id',
   emptyMessage: '데이터가 없습니다.',
   clickable: false
 })
@@ -26,11 +30,12 @@ const emit = defineEmits<{ rowClick: [row: T] }>()
 
 const getKey = (row: T, i: number): string | number => {
   if (typeof props.rowKey === 'function') return props.rowKey(row)
-  return row[props.rowKey as keyof T] ?? i
+  const v = row[props.rowKey]
+  return (typeof v === 'string' || typeof v === 'number') ? v : i
 }
 
 const alignClass = (a?: string) => a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : ''
-const cellClass = (col: Column<T>) => [col.class, alignClass(col.align)].filter(Boolean).join(' ')
+const cellClass = (col: Column) => [col.class, alignClass(col.align)].filter(Boolean).join(' ')
 </script>
 
 <template>

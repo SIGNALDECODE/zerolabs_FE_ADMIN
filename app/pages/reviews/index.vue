@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Review } from '~/types/content'
 
 useHead({ title: '리뷰 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -8,13 +9,15 @@ const reviewApi = useAdminReview()
 const router = useRouter()
 const toast = useToast()
 
-const reviews = ref<any[]>([])
+const ALL = 'ALL'
+
+const reviews = ref<Review[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
   keyword: '',
-  rating: '',
+  rating: ALL as string,
   page: 1,
   size: 30
 })
@@ -34,9 +37,9 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await reviewApi.list({
+    const data = await reviewApi.list({
       keyword: filters.keyword || undefined,
-      rating: filters.rating ? Number(filters.rating) : undefined,
+      rating: filters.rating === ALL ? undefined : Number(filters.rating),
       page: filters.page,
       size: filters.size
     })
@@ -52,7 +55,7 @@ const goPage = (p: number) => { filters.page = p; load() }
 
 watchDebounced(() => filters.keyword, search, { debounce: 400 })
 
-const toggleVisibility = async (r: any) => {
+const toggleVisibility = async (r: Review) => {
   const visible = !(r.isVisible ?? true)
   try {
     await reviewApi.toggleVisibility({ reviewId: r.id, visible })
@@ -69,14 +72,19 @@ onMounted(load)
     <PageHeader title="리뷰 관리" :description="`총 ${total.toLocaleString()}건`" />
 
     <FilterBar @search="search">
-      <select v-model="filters.rating" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 별점</option>
-        <option value="5">★★★★★</option>
-        <option value="4">★★★★☆</option>
-        <option value="3">★★★☆☆</option>
-        <option value="2">★★☆☆☆</option>
-        <option value="1">★☆☆☆☆</option>
-      </select>
+      <Select v-model="filters.rating">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 별점</SelectItem>
+          <SelectItem value="5">★★★★★</SelectItem>
+          <SelectItem value="4">★★★★☆</SelectItem>
+          <SelectItem value="3">★★★☆☆</SelectItem>
+          <SelectItem value="2">★★☆☆☆</SelectItem>
+          <SelectItem value="1">★☆☆☆☆</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="내용 / 작성자 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -86,7 +94,7 @@ onMounted(load)
       :loading="loading"
       empty-message="리뷰가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/reviews/${row.id}`)"
+      @row-click="(row: Review) => router.push(`/reviews/${row.id}`)"
     >
       <template #cell-id="{ row }">
         <span class="text-muted-foreground text-xs">{{ row.id }}</span>

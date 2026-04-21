@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Popup, PopupFormState } from '~/types/marketing'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,12 +13,12 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const popup = ref<any>(null)
+const popup = ref<Popup | null>(null)
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
-const form = reactive<any>({
+const form = reactive<PopupFormState>({
   name: '',
   status: 'INACTIVE',
   image: '',
@@ -81,10 +82,9 @@ const submit = async () => {
   saving.value = true
   try {
     if (isNew) {
-      const res: any = await popupApi.create(buildBody())
-      const newId = typeof res === 'object' ? (res.id ?? res) : res
+      const res = await popupApi.create(buildBody())
       toast.success('팝업을 등록했습니다.')
-      router.push(`/popups/${newId}`)
+      router.push(`/popups/${res.id}`)
     } else {
       await popupApi.update(id, buildBody())
       toast.success('팝업을 수정했습니다.')
@@ -103,8 +103,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await popupApi.remove(id)
-  router.push('/popups')
+  try {
+    await popupApi.remove(id)
+    toast.success('팝업을 삭제했습니다.')
+    router.push('/popups')
+  } catch (e) {
+    toast.error(e, '팝업 삭제 실패')
+  }
 }
 
 onMounted(load)
@@ -141,25 +146,22 @@ useHead({ title: () => isNew ? '새 팝업 등록 | ZeroLabs Admin' : `${popup.v
         </div>
 
         <div>
-          <Label class="mb-1.5 block">이미지 URL</Label>
-          <Input v-model="form.image" placeholder="https://cdn.example.com/popup.jpg" maxlength="500" />
-          <div v-if="form.image" class="mt-3">
-            <p class="text-xs text-muted-foreground mb-1">미리보기</p>
-            <img
-              :src="form.image"
-              class="max-h-40 rounded border"
-              @error="($event.target as HTMLImageElement).style.display='none'"
-            />
-          </div>
+          <Label class="mb-1.5 block">이미지</Label>
+          <ImageUploadField v-model="form.image" preview-class="max-h-56" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">타입</Label>
-            <select v-model="form.popupType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="CENTER">CENTER (중앙 모달)</option>
-              <option value="FLOATING">FLOATING (플로팅)</option>
-            </select>
+            <Select v-model="form.popupType">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="팝업 타입 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CENTER">CENTER (중앙 모달)</SelectItem>
+                <SelectItem value="FLOATING">FLOATING (플로팅)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label class="mb-1.5 block">정렬 순서</Label>
@@ -170,18 +172,28 @@ useHead({ title: () => isNew ? '새 팝업 등록 | ZeroLabs Admin' : `${popup.v
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">닫기 옵션</Label>
-            <select v-model="form.closeOption" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="CLOSE">항상 닫기 (X 버튼)</option>
-              <option value="TODAY">오늘 다시 보지 않기</option>
-              <option value="WEEK">7일간 보지 않기</option>
-            </select>
+            <Select v-model="form.closeOption">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="닫기 옵션 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CLOSE">항상 닫기 (X 버튼)</SelectItem>
+                <SelectItem value="TODAY">오늘 다시 보지 않기</SelectItem>
+                <SelectItem value="WEEK">7일간 보지 않기</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label class="mb-1.5 block">링크 타겟</Label>
-            <select v-model="form.linkTarget" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="_self">현재 창 (_self)</option>
-              <option value="_blank">새 창 (_blank)</option>
-            </select>
+            <Select v-model="form.linkTarget">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="링크 타겟 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_self">현재 창 (_self)</SelectItem>
+                <SelectItem value="_blank">새 창 (_blank)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -192,10 +204,15 @@ useHead({ title: () => isNew ? '새 팝업 등록 | ZeroLabs Admin' : `${popup.v
 
         <div>
           <Label class="mb-1.5 block">상태</Label>
-          <select v-model="form.status" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="INACTIVE">비활성</option>
-            <option value="ACTIVE">활성</option>
-          </select>
+          <Select v-model="form.status">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="상태 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="INACTIVE">비활성</SelectItem>
+              <SelectItem value="ACTIVE">활성</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div class="grid grid-cols-2 gap-4">

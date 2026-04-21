@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { formatPhone } from '~/utils/format'
+import type {
+  TenantAllSettings,
+  TenantFormState,
+  HeaderMenuItem,
+  HeaderMenuResponse
+} from '~/types/tenant'
 
 useHead({ title: '쇼핑몰 설정 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,29 +13,29 @@ definePageMeta({ layout: 'default' })
 const tenantApi = useAdminTenant()
 const toast = useToast()
 
-const settings = ref<any>(null)
-const headerMenu = ref<any>(null)
+const settings = ref<TenantAllSettings | null>(null)
+const headerMenu = ref<HeaderMenuResponse | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
 
 const menuEditing = ref(false)
 const menuSaving = ref(false)
-const menuDraft = ref<{ id: string, label: string, order: number }[]>([])
+const menuDraft = ref<HeaderMenuItem[]>([])
 
 const logoFile = ref<File | null>(null)
 const faviconFile = ref<File | null>(null)
 const logoPreview = ref('')
 const faviconPreview = ref('')
 
-const form = reactive<any>({
-  info: {} as any,
-  seo: {} as any,
-  settlement: {} as any,
-  maintenance: {} as any,
-  social: {} as any,
-  notification: {} as any,
-  security: {} as any
+const form = reactive<TenantFormState>({
+  info: {},
+  seo: {},
+  settlement: {},
+  maintenance: {},
+  social: {},
+  notification: {},
+  security: {}
 })
 
 const resetForm = () => {
@@ -46,6 +52,9 @@ const resetForm = () => {
   logoPreview.value = settings.value.info?.logoUrl ?? ''
   faviconPreview.value = settings.value.info?.faviconUrl ?? ''
 }
+
+const menuItems = (m: HeaderMenuResponse | null): HeaderMenuItem[] =>
+  m == null ? [] : (Array.isArray(m) ? m : (m.menus ?? []))
 
 const load = async () => {
   loading.value = true
@@ -102,11 +111,10 @@ const submit = async () => {
 }
 
 const resetMenu = () => {
-  const items = Array.isArray(headerMenu.value) ? headerMenu.value : (headerMenu.value?.menus ?? [])
-  menuDraft.value = items
+  menuDraft.value = menuItems(headerMenu.value)
     .slice()
-    .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-    .map((it: any) => ({ id: String(it.id ?? ''), label: it.label ?? '', order: it.order ?? 0 }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map(it => ({ id: String(it.id ?? ''), label: it.label ?? '', order: it.order ?? 0 }))
 }
 
 const startMenuEdit = () => {
@@ -359,22 +367,22 @@ const security = computed(() => settings.value?.security ?? {})
 
         <DetailSection title="기본 정보">
           <DetailField label="쇼핑몰명" :value="info.name" />
-          <DetailField label="상호" :value="info.businessName ?? info.companyName" />
-          <DetailField label="대표자" :value="info.ceoName ?? info.representative" />
+          <DetailField label="상호" :value="info.businessName" />
+          <DetailField label="대표자" :value="info.ceoName" />
           <DetailField label="사업자등록번호" :value="info.businessNumber" />
-          <DetailField label="통신판매업" :value="info.ecommerceLicense ?? info.mailOrderNumber" />
-          <DetailField label="고객센터" :value="formatPhone(info.csPhone ?? info.customerServicePhone)" />
-          <DetailField label="이메일" :value="info.csEmail ?? info.customerServiceEmail" />
+          <DetailField label="통신판매업" :value="info.ecommerceLicense" />
+          <DetailField label="고객센터" :value="formatPhone(info.csPhone)" />
+          <DetailField label="이메일" :value="info.csEmail" />
           <DetailField label="주소" :value="[info.address, info.addressDetail].filter(Boolean).join(' ')" full />
         </DetailSection>
       </div>
 
       <div class="grid gap-6 md:grid-cols-2">
         <DetailSection title="SEO">
-          <DetailField label="타이틀" :value="seo.metaTitle ?? seo.title" full />
-          <DetailField label="설명" :value="seo.metaDescription ?? seo.description" full />
-          <DetailField label="키워드" :value="seo.metaKeywords ?? seo.keywords" full />
-          <DetailField label="OG 이미지" :value="seo.ogImage ?? seo.ogImageUrl" full mono />
+          <DetailField label="타이틀" :value="seo.metaTitle" full />
+          <DetailField label="설명" :value="seo.metaDescription" full />
+          <DetailField label="키워드" :value="seo.metaKeywords" full />
+          <DetailField label="OG 이미지" :value="seo.ogImage" full mono />
         </DetailSection>
 
         <DetailSection title="점검 모드">
@@ -386,8 +394,8 @@ const security = computed(() => settings.value?.security ?? {})
 
         <DetailSection title="정산">
           <DetailField label="은행" :value="settlement.bankName" />
-          <DetailField label="예금주" :value="settlement.bankHolder ?? settlement.accountHolder" />
-          <DetailField label="계좌번호" :value="settlement.bankAccount ?? settlement.accountNumber" mono full />
+          <DetailField label="예금주" :value="settlement.bankHolder" />
+          <DetailField label="계좌번호" :value="settlement.bankAccount" mono full />
         </DetailSection>
 
         <DetailSection title="소셜">
@@ -395,7 +403,7 @@ const security = computed(() => settings.value?.security ?? {})
           <DetailField label="Facebook" :value="social.facebook" />
           <DetailField label="YouTube" :value="social.youtube" />
           <DetailField label="Blog" :value="social.blog" />
-          <DetailField label="KakaoTalk" :value="social.kakao ?? social.kakaoChannel" />
+          <DetailField label="KakaoTalk" :value="social.kakao" />
         </DetailSection>
 
         <DetailSection title="알림">
@@ -417,7 +425,7 @@ const security = computed(() => settings.value?.security ?? {})
           <div>
             <CardTitle class="text-base">헤더 메뉴</CardTitle>
             <CardDescription>
-              {{ Array.isArray(headerMenu) ? headerMenu.length : (headerMenu?.menus?.length ?? 0) }}개 항목 · 쇼핑몰 상단 네비게이션
+              {{ menuItems(headerMenu).length }}개 항목 · 쇼핑몰 상단 네비게이션
             </CardDescription>
           </div>
           <Button v-if="!menuEditing" variant="outline" size="sm" @click="startMenuEdit">
@@ -428,7 +436,7 @@ const security = computed(() => settings.value?.security ?? {})
           <!-- 조회 -->
           <ul v-if="!menuEditing" class="divide-y">
             <li
-              v-for="m in (Array.isArray(headerMenu) ? headerMenu : (headerMenu?.menus ?? [])).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))"
+              v-for="m in menuItems(headerMenu).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0))"
               :key="m.id"
               class="flex items-center gap-3 py-2 text-sm"
             >
@@ -436,7 +444,7 @@ const security = computed(() => settings.value?.security ?? {})
               <span class="font-medium">{{ m.label }}</span>
               <span class="ml-auto text-xs font-mono text-muted-foreground">{{ m.id }}</span>
             </li>
-            <li v-if="!(headerMenu?.menus?.length || (Array.isArray(headerMenu) && headerMenu.length))" class="text-center text-muted-foreground text-sm py-6">
+            <li v-if="!menuItems(headerMenu).length" class="text-center text-muted-foreground text-sm py-6">
               등록된 헤더 메뉴가 없습니다.
             </li>
           </ul>

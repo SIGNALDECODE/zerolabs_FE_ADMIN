@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Banner, BannerFormState } from '~/types/marketing'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,15 +13,16 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const banner = ref<any>(null)
+const banner = ref<Banner | null>(null)
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
-const form = reactive<any>({
+const form = reactive<BannerFormState>({
   title: '',
   position: 'HERO',
   imageUrl: '',
+  mobileImageUrl: '',
   linkUrl: '',
   sortOrder: 1,
   status: 'INACTIVE',
@@ -36,6 +38,7 @@ const resetForm = () => {
     title: b.title ?? '',
     position: b.position ?? 'HERO',
     imageUrl: b.imageUrl ?? '',
+    mobileImageUrl: b.mobileImageUrl ?? '',
     linkUrl: b.linkUrl ?? '',
     sortOrder: b.sortOrder ?? 1,
     status: b.status ?? 'INACTIVE',
@@ -65,6 +68,7 @@ const buildBody = () => ({
   title: form.title,
   position: form.position,
   imageUrl: form.imageUrl,
+  mobileImageUrl: form.mobileImageUrl || undefined,
   linkUrl: form.linkUrl || undefined,
   sortOrder: Number(form.sortOrder) || 0,
   status: form.status,
@@ -79,10 +83,9 @@ const submit = async () => {
   saving.value = true
   try {
     if (isNew) {
-      const res: any = await bannerApi.create(buildBody())
-      const newId = typeof res === 'object' ? (res.id ?? res) : res
+      const res = await bannerApi.create(buildBody())
       toast.success('배너를 등록했습니다.')
-      router.push(`/banners/${newId}`)
+      router.push(`/banners/${res.id}`)
     } else {
       await bannerApi.update(id, buildBody())
       toast.success('배너를 수정했습니다.')
@@ -101,8 +104,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await bannerApi.remove(id)
-  router.push('/banners')
+  try {
+    await bannerApi.remove(id)
+    toast.success('배너를 삭제했습니다.')
+    router.push('/banners')
+  } catch (e) {
+    toast.error(e, '배너 삭제 실패')
+  }
 }
 
 onMounted(load)
@@ -139,27 +147,51 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
         </div>
 
         <div>
-          <Label class="mb-1.5 block">이미지 URL <span class="text-destructive">*</span></Label>
-          <Input v-model="form.imageUrl" placeholder="https://cdn.example.com/banner.jpg" maxlength="500" />
-          <div v-if="form.imageUrl" class="mt-3">
-            <p class="text-xs text-muted-foreground mb-1">미리보기</p>
-            <img
-              :src="form.imageUrl"
-              class="max-h-40 rounded border"
-              @error="($event.target as HTMLImageElement).style.display='none'"
-            />
+          <Label class="mb-1.5 block">PC 이미지 <span class="text-destructive">*</span></Label>
+          <div v-if="form.position === 'HERO'" class="mb-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+            <p class="mb-1 font-medium text-foreground">PC 히어로 배너 권장 사양</p>
+            <ul class="space-y-0.5">
+              <li>• 권장 크기: <span class="font-medium text-foreground">1920 × 700 px</span> (가로 비율 96:35)</li>
+              <li>• 고화질 권장: 2560 × 934 px <span class="text-muted-foreground/80">— QHD 모니터 대응</span></li>
+              <li>• 최소 크기: 1440 × 525 px</li>
+              <li>• 파일 형식: WebP · JPG · PNG</li>
+              <li>• 중요한 텍스트·피사체는 중앙 <span class="font-medium text-foreground">70%</span> 영역에 배치 <span class="text-muted-foreground/80">— 모니터 너비에 따라 좌우가 미세하게 잘릴 수 있습니다.</span></li>
+            </ul>
           </div>
+          <ImageUploadField v-model="form.imageUrl" preview-class="max-h-48 w-full" />
+        </div>
+
+        <div>
+          <Label class="mb-1.5 block">모바일 이미지</Label>
+          <p class="mb-2 text-xs text-muted-foreground">
+            미입력 시 PC 이미지를 모바일에서도 그대로 사용합니다.
+          </p>
+          <div v-if="form.position === 'HERO'" class="mb-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+            <p class="mb-1 font-medium text-foreground">모바일 히어로 배너 권장 사양</p>
+            <ul class="space-y-0.5">
+              <li>• 권장 크기: <span class="font-medium text-foreground">750 × 920 px</span> (세로 비율 75:92)</li>
+              <li>• 최소 크기: 375 × 460 px</li>
+              <li>• 파일 형식: WebP · JPG · PNG</li>
+              <li>• 중요한 텍스트·피사체는 중앙 <span class="font-medium text-foreground">60%</span> 영역에 배치 <span class="text-muted-foreground/80">— 기기 화면 비율에 따라 좌우가 미세하게 잘릴 수 있습니다.</span></li>
+            </ul>
+          </div>
+          <ImageUploadField v-model="form.mobileImageUrl" preview-class="max-h-48" />
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">위치 <span class="text-destructive">*</span></Label>
-            <select v-model="form.position" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="HERO">HERO (메인 대형)</option>
-              <option value="SLIDE">SLIDE (슬라이드)</option>
-              <option value="HALF">HALF (절반)</option>
-              <option value="FULL">FULL (전체폭)</option>
-            </select>
+            <Select v-model="form.position">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HERO">HERO (메인 대형)</SelectItem>
+                <SelectItem value="SLIDE">SLIDE (슬라이드)</SelectItem>
+                <SelectItem value="HALF">HALF (절반)</SelectItem>
+                <SelectItem value="FULL">FULL (전체폭)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label class="mb-1.5 block">정렬 순서</Label>
@@ -174,11 +206,16 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
 
         <div>
           <Label class="mb-1.5 block">상태</Label>
-          <select v-model="form.status" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="INACTIVE">비활성</option>
-            <option value="ACTIVE">노출중</option>
-            <option value="SCHEDULED">예약</option>
-          </select>
+          <Select v-model="form.status">
+            <SelectTrigger class="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="INACTIVE">비활성</SelectItem>
+              <SelectItem value="ACTIVE">노출중</SelectItem>
+              <SelectItem value="SCHEDULED">예약</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -209,11 +246,20 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
     </Card>
 
     <div v-else-if="banner" class="space-y-6">
-      <Card v-if="banner.imageUrl">
-        <CardContent class="p-4">
-          <img :src="banner.imageUrl" class="w-full rounded border" />
-        </CardContent>
-      </Card>
+      <div v-if="banner.imageUrl || banner.mobileImageUrl" class="grid gap-4 md:grid-cols-2">
+        <Card v-if="banner.imageUrl">
+          <CardContent class="p-4">
+            <p class="mb-2 text-xs text-muted-foreground">PC</p>
+            <img :src="banner.imageUrl" class="w-full rounded border" />
+          </CardContent>
+        </Card>
+        <Card v-if="banner.mobileImageUrl">
+          <CardContent class="p-4">
+            <p class="mb-2 text-xs text-muted-foreground">모바일</p>
+            <img :src="banner.mobileImageUrl" class="w-full rounded border" />
+          </CardContent>
+        </Card>
+      </div>
 
       <DetailSection title="배너 정보">
         <DetailField label="제목" :value="banner.title" full />

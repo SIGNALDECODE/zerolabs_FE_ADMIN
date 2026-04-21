@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate, formatNumber, formatPhone } from '~/utils/format'
+import type { PageResponse } from '~/types/api'
+import type { UserDetail, UserOrderEntry, PointHistoryEntry } from '~/types/user'
 
 definePageMeta({ layout: 'default' })
 
@@ -11,31 +13,37 @@ const toast = useToast()
 const confirm = useConfirm()
 
 const id = Number(route.params.id)
-const user = ref<any>(null)
-const orders = ref<any[]>([])
-const pointHistory = ref<any[]>([])
+const user = ref<UserDetail | null>(null)
+const orders = ref<UserOrderEntry[]>([])
+const pointHistory = ref<PointHistoryEntry[]>([])
 const loading = ref(true)
 const memo = ref('')
 const savingMemo = ref(false)
 
 const pointOpen = ref(false)
 const adjustingPoint = ref(false)
-const pointForm = reactive({
-  amount: '' as string | number,
+const pointForm = reactive<{ amount: string | number, reason: string }>({
+  amount: '',
   reason: ''
 })
+
+const unwrapList = <T>(res: PageResponse<T> | T[] | null | undefined): T[] => {
+  if (res == null) return []
+  if (Array.isArray(res)) return res
+  return res.content ?? []
+}
 
 const load = async () => {
   loading.value = true
   try {
     const [u, orderRes, pointRes] = await Promise.all([
-      api.get(`/admin/users/${id}`),
-      api.get(`/admin/users/${id}/orders`, { page: 1, size: 10 }).catch(() => null),
+      api.get<UserDetail>(`/admin/users/${id}`),
+      api.get<PageResponse<UserOrderEntry> | UserOrderEntry[]>(`/admin/users/${id}/orders`, { page: 1, size: 10 }).catch(() => null),
       pointApi.getUserPoints(id).catch(() => null)
     ])
-    user.value = u as any
-    orders.value = (orderRes as any)?.content ?? (orderRes as any) ?? []
-    pointHistory.value = (pointRes as any)?.content ?? (pointRes as any) ?? []
+    user.value = u
+    orders.value = unwrapList(orderRes)
+    pointHistory.value = unwrapList(pointRes)
   } finally {
     loading.value = false
   }
@@ -67,11 +75,10 @@ const removeMemo = async (memoId: number) => {
   } catch (e) { toast.error(e, '삭제 실패') }
 }
 
-const changeStatus = async (status: string) => {
+const changeStatus = async (status: 'ACTIVE' | 'INACTIVE') => {
   const ok = await confirm.ask('회원 상태 변경', {
     description: `상태를 ${status}로 변경합니다.`,
-    confirmText: '변경',
-    tone: status === 'WITHDRAWN' ? 'danger' : 'default'
+    confirmText: '변경'
   })
   if (!ok) return
   try {
@@ -79,6 +86,20 @@ const changeStatus = async (status: string) => {
     toast.success('회원 상태를 변경했습니다.')
     await load()
   } catch (e) { toast.error(e, '변경 실패') }
+}
+
+const forceWithdraw = async () => {
+  const ok = await confirm.ask('강제 탈퇴', {
+    description: `${user.value?.name ?? '해당 회원'}을(를) 강제 탈퇴 처리합니다. 이 동작은 되돌릴 수 없습니다.`,
+    confirmText: '탈퇴 처리',
+    tone: 'danger'
+  })
+  if (!ok) return
+  try {
+    await api.del(`/admin/users/${id}`)
+    toast.success('회원을 탈퇴 처리했습니다.')
+    await load()
+  } catch (e) { toast.error(e, '탈퇴 처리 실패') }
 }
 
 const openPointAdjust = () => {
@@ -110,7 +131,7 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
   <div class="p-8 max-w-5xl">
     <DetailHeader
       :title="user?.name ?? (loading ? '…' : '회원')"
-      :subtitle="user ? `회원 ID · ${user.id}` : null"
+      :subtitle="user ? `회원 ID · ${user.user_id}` : null"
       back-to="/users"
     >
       <template #actions>
@@ -131,23 +152,23 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
           <DetailField label="이메일" :value="user.email" />
           <DetailField label="연락처" :value="formatPhone(user.phone)" />
           <DetailField label="성별" :value="user.gender" />
-          <DetailField label="생년월일" :value="user.birthDate" />
-          <DetailField label="가입일" :value="formatDate(user.createdAt)" />
-          <DetailField label="최근 로그인" :value="formatDate(user.lastLoginAt)" />
+          <DetailField label="가입일" :value="formatDate(user.created_at)" />
+          <DetailField label="최근 로그인" :value="formatDate(user.last_login_at)" />
 
           <template #footer>
             <Button variant="outline" size="sm" @click="changeStatus('ACTIVE')">활성화</Button>
-            <Button variant="outline" size="sm" @click="changeStatus('SUSPENDED')">정지</Button>
-            <Button variant="outline" size="sm" class="text-destructive" @click="changeStatus('WITHDRAWN')">탈퇴 처리</Button>
+            <Button variant="outline" size="sm" @click="changeStatus('INACTIVE')">비활성화</Button>
+            <Button variant="outline" size="sm" class="text-destructive" @click="forceWithdraw">강제 탈퇴</Button>
           </template>
         </DetailSection>
 
         <DetailSection title="등급 / 포인트">
           <DetailField label="등급" :value="user.grade?.name" />
-          <DetailField label="보유 포인트" :value="formatNumber(user.point?.currentPoint)" />
-          <DetailField label="누적 구매" :value="formatCurrency(user.orderStatistics?.totalPaid)" />
-          <DetailField label="주문 건수" :value="formatNumber(user.orderStatistics?.orderCount)" />
-          <DetailField label="반품/취소" :value="formatNumber(user.orderStatistics?.cancelCount)" />
+          <DetailField label="보유 포인트" :value="formatNumber(user.current_point)" />
+          <DetailField label="누적 구매" :value="formatCurrency(user.order_statistics?.total_order_amount)" />
+          <DetailField label="주문 건수" :value="formatNumber(user.order_statistics?.total_order_count)" />
+          <DetailField label="평균 주문액" :value="formatCurrency(user.order_statistics?.average_order_amount)" />
+          <DetailField label="취소/반품" :value="`${user.order_statistics?.cancelled_count ?? 0} / ${user.order_statistics?.refunded_count ?? 0}`" />
 
           <template #footer>
             <Button variant="outline" size="sm" @click="openPointAdjust">
@@ -157,23 +178,17 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
         </DetailSection>
       </div>
 
-      <DetailSection v-if="user.addresses?.length" title="배송지" :description="`${user.addresses.length}개`">
-        <div class="col-span-2 space-y-2">
-          <div
-            v-for="addr in user.addresses"
-            :key="addr.id"
-            class="p-3 border rounded-md text-sm flex items-start justify-between gap-2"
-          >
-            <div>
-              <div class="flex items-center gap-2 mb-1">
-                <span class="font-medium">{{ addr.recipientName }}</span>
-                <Badge v-if="addr.isDefault" variant="secondary">기본</Badge>
-                <span class="text-muted-foreground">{{ formatPhone(addr.recipientPhone) }}</span>
-              </div>
-              <p class="text-muted-foreground">
-                {{ [addr.postalCode, addr.address, addr.addressDetail].filter(Boolean).join(' ') }}
-              </p>
+      <DetailSection v-if="user.default_address" title="기본 배송지">
+        <div class="col-span-2">
+          <div class="p-3 border rounded-md text-sm">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-medium">{{ user.default_address.recipient_name }}</span>
+              <Badge v-if="user.default_address.is_default" variant="secondary">기본</Badge>
+              <span class="text-muted-foreground">{{ formatPhone(user.default_address.recipient_phone) }}</span>
             </div>
+            <p class="text-muted-foreground">
+              {{ [user.default_address.postal_code, user.default_address.address1, user.default_address.address2].filter(Boolean).join(' ') }}
+            </p>
           </div>
         </div>
       </DetailSection>
@@ -185,6 +200,7 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
               <TableRow>
                 <TableHead>주문번호</TableHead>
                 <TableHead>상태</TableHead>
+                <TableHead>상품</TableHead>
                 <TableHead class="text-right">금액</TableHead>
                 <TableHead>주문일</TableHead>
               </TableRow>
@@ -192,14 +208,15 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
             <TableBody>
               <TableRow
                 v-for="o in orders"
-                :key="o.orderId ?? o.id"
+                :key="o.order_id"
                 class="cursor-pointer"
-                @click="router.push(`/orders/${o.orderId ?? o.id}`)"
+                @click="router.push(`/orders/${o.order_id}`)"
               >
-                <TableCell class="font-mono text-xs">{{ o.orderNumber }}</TableCell>
+                <TableCell class="font-mono text-xs">{{ o.order_number }}</TableCell>
                 <TableCell><StatusBadge :status="o.status" /></TableCell>
-                <TableCell class="text-right">{{ formatCurrency(o.grandTotal ?? o.totalAmount) }}</TableCell>
-                <TableCell class="text-muted-foreground">{{ formatDate(o.orderedAt ?? o.createdAt) }}</TableCell>
+                <TableCell class="text-muted-foreground max-w-xs truncate">{{ o.product_summary }}</TableCell>
+                <TableCell class="text-right">{{ formatCurrency(o.grand_total) }}</TableCell>
+                <TableCell class="text-muted-foreground">{{ formatDate(o.ordered_at) }}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -221,9 +238,9 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
             </TableHeader>
             <TableBody>
               <TableRow v-for="(h, i) in pointHistory" :key="h.id ?? i">
-                <TableCell class="text-muted-foreground text-xs">{{ formatDate(h.createdAt) }}</TableCell>
+                <TableCell class="text-muted-foreground text-xs">{{ formatDate(h.created_at) }}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" class="text-[10px]">{{ h.type ?? h.transactionType ?? '-' }}</Badge>
+                  <Badge variant="outline" class="text-[10px]">{{ h.transaction_type ?? '-' }}</Badge>
                 </TableCell>
                 <TableCell
                   class="text-right font-medium"
@@ -231,8 +248,8 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
                 >
                   {{ Number(h.amount) > 0 ? '+' : '' }}{{ formatNumber(h.amount) }} P
                 </TableCell>
-                <TableCell class="text-right text-muted-foreground">{{ formatNumber(h.balance) }} P</TableCell>
-                <TableCell class="text-muted-foreground text-sm max-w-xs truncate">{{ h.reason ?? h.description }}</TableCell>
+                <TableCell class="text-right text-muted-foreground">{{ formatNumber(h.balance_after) }} P</TableCell>
+                <TableCell class="text-muted-foreground text-sm max-w-xs truncate">{{ h.reason }}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -245,12 +262,12 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
             <Textarea v-model="memo" placeholder="메모 내용을 입력하세요." rows="2" />
             <Button :disabled="!memo.trim() || savingMemo" @click="addMemo">등록</Button>
           </div>
-          <ul v-if="user.csMemos?.length" class="space-y-2">
-            <li v-for="m in user.csMemos" :key="m.id" class="flex items-start justify-between gap-3 p-3 border rounded-md">
+          <ul v-if="user.cs_memos?.length" class="space-y-2">
+            <li v-for="m in user.cs_memos" :key="m.id" class="flex items-start justify-between gap-3 p-3 border rounded-md">
               <div class="flex-1 min-w-0">
                 <p class="text-sm whitespace-pre-wrap">{{ m.content }}</p>
                 <p class="mt-1 text-xs text-muted-foreground">
-                  {{ m.adminName ?? '관리자' }} · {{ formatDate(m.createdAt) }}
+                  {{ m.created_by_name ?? '관리자' }} · {{ formatDate(m.created_at) }}
                 </p>
               </div>
               <Button variant="ghost" size="sm" @click="removeMemo(m.id)">
@@ -271,7 +288,7 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
         <DialogHeader>
           <DialogTitle>포인트 조정</DialogTitle>
           <DialogDescription>
-            현재 보유 포인트: <strong>{{ formatNumber(user?.point?.currentPoint ?? 0) }} P</strong> ·
+            현재 보유 포인트: <strong>{{ formatNumber(user?.current_point ?? 0) }} P</strong> ·
             양수는 지급 / 음수는 차감
           </DialogDescription>
         </DialogHeader>

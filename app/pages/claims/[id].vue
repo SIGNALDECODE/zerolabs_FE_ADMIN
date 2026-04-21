@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { OrderClaim } from '~/types/claim'
 
 definePageMeta({ layout: 'default' })
 
@@ -13,7 +14,7 @@ const confirm = useConfirm()
 const claimId = Number(route.params.id)
 const orderId = Number(route.query.orderId)
 
-const claim = ref<any>(null)
+const claim = ref<OrderClaim | null>(null)
 const loading = ref(true)
 const processing = ref(false)
 
@@ -32,7 +33,7 @@ const load = async () => {
   }
   loading.value = true
   try {
-    const claims: any[] = await claimApi.listByOrder(orderId)
+    const claims = await claimApi.listByOrder(orderId)
     claim.value = claims.find(c => c.claimId === claimId) ?? null
   } finally {
     loading.value = false
@@ -98,20 +99,22 @@ const submitShipping = async () => {
   if (!shippingForm.trackingNumber.trim()) return toast.error('송장번호를 입력하세요.')
   processing.value = true
   try {
-    const body: any = {
+    const base = {
       fromStatus: claim.value?.status,
       shippingCarrier: shippingForm.shippingCarrier,
       trackingNumber: shippingForm.trackingNumber
     }
     if (shippingForm.mode === 'return') {
-      await claimApi.updateReturnShipping(claimId, body)
+      await claimApi.updateReturnShipping(claimId, base)
       toast.success('반송장을 등록했습니다.')
     } else if (shippingForm.mode === 'reship') {
-      await claimApi.reship(claimId, body)
+      await claimApi.reship(claimId, base)
       toast.success('재배송 송장을 등록했습니다.')
     } else {
-      body.adminNote = shippingForm.adminNote || undefined
-      await claimApi.completeExchange(claimId, body)
+      await claimApi.completeExchange(claimId, {
+        ...base,
+        adminNote: shippingForm.adminNote || undefined
+      })
       toast.success('교환을 완료 처리했습니다.')
     }
     shippingOpen.value = false

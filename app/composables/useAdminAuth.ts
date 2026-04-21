@@ -1,4 +1,9 @@
-import type { AdminAccount } from '~/types/user'
+import type { AdminMe } from '~/types/user'
+
+export interface LoginSuccessResponse {
+  message: string
+  expiresIn: number
+}
 
 /**
  * Admin Auth
@@ -8,10 +13,10 @@ export const useAdminAuth = () => {
   const api = useApi()
 
   return {
-    login: (body: { email: string, password: string }) => api.post<AdminAccount>('/auth/login', body),
+    login: (body: { email: string, password: string }) => api.post<LoginSuccessResponse>('/auth/login', body),
     logout: () => api.post<void>('/auth/logout'),
-    refresh: () => api.post<void>('/auth/refresh'),
-    me: () => api.get<AdminAccount>('/auth/admin/me'),
+    refresh: () => api.post<LoginSuccessResponse>('/auth/refresh'),
+    me: () => api.get<AdminMe>('/auth/admin/me'),
 
     sendPasswordResetCode: (body: { email: string }) => api.post<void>('/auth/password-reset/send', body),
     resetPassword: (body: { email: string, code: string, newPassword: string }) =>

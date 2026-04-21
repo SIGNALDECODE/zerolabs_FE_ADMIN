@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
+import type { CouponListItem } from '~/types/marketing'
 
 useHead({ title: '쿠폰 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,12 +8,14 @@ definePageMeta({ layout: 'default' })
 const couponApi = useAdminCoupon()
 const router = useRouter()
 
-const coupons = ref<any[]>([])
+const ALL = 'ALL'
+
+const coupons = ref<CouponListItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  status: '',
+  status: ALL as string,
   keyword: '',
   page: 1,
   size: 30
@@ -31,8 +34,8 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await couponApi.list({
-      status: filters.status || undefined,
+    const data = await couponApi.list({
+      status: filters.status === ALL ? undefined : filters.status,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -58,14 +61,14 @@ const typeLabels: Record<string, string> = {
   PRODUCT_DISCOUNT: '상품할인', FREE_SHIPPING: '무료배송'
 }
 
-const discountText = (row: any) => {
+const discountText = (row: CouponListItem) => {
   if (!row.discountValue) return '-'
   return row.discountType === 'RATE'
     ? `${row.discountValue}%`
     : formatCurrency(row.discountValue)
 }
 
-const issuedRate = (row: any) => {
+const issuedRate = (row: CouponListItem) => {
   if (!row.totalQuantity) return '-'
   const ratio = ((row.issuedQuantity ?? 0) / row.totalQuantity * 100).toFixed(1)
   return `${formatNumber(row.issuedQuantity)} / ${formatNumber(row.totalQuantity)} (${ratio}%)`
@@ -85,14 +88,19 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="REGISTERED">등록</option>
-        <option value="ACTIVE">발급중</option>
-        <option value="STOPPED">발급중지</option>
-        <option value="ENDED">종료</option>
-        <option value="RECALLED">회수완료</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="REGISTERED">등록</SelectItem>
+          <SelectItem value="ACTIVE">발급중</SelectItem>
+          <SelectItem value="STOPPED">발급중지</SelectItem>
+          <SelectItem value="ENDED">종료</SelectItem>
+          <SelectItem value="RECALLED">회수완료</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="쿠폰명 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -102,7 +110,7 @@ onMounted(load)
       :loading="loading"
       empty-message="쿠폰이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/coupons/${row.id}`)"
+      @row-click="(row: CouponListItem) => router.push(`/coupons/${row.id}`)"
     >
       <template #cell-name="{ row }">
         <span class="font-medium">{{ row.name }}</span>

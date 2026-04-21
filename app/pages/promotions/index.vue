@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { Promotion } from '~/types/marketing'
 
 useHead({ title: '프로모션 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,7 +8,7 @@ definePageMeta({ layout: 'default' })
 const promotionApi = useAdminPromotion()
 const router = useRouter()
 
-const promotions = ref<any[]>([])
+const promotions = ref<Promotion[]>([])
 const total = ref(0)
 const loading = ref(false)
 
@@ -28,7 +29,7 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await promotionApi.list({
+    const data = await promotionApi.list({
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -45,7 +46,7 @@ const goPage = (p: number) => { filters.page = p; load() }
 
 watchDebounced(() => filters.keyword, search, { debounce: 400 })
 
-const discountText = (p: any) =>
+const discountText = (p: Promotion) =>
   p.discountType === 'RATE'
     ? `${p.discountValue}%`
     : formatCurrency(p.discountValue)
@@ -73,7 +74,7 @@ onMounted(load)
       :loading="loading"
       empty-message="프로모션이 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/promotions/${row.id}`)"
+      @row-click="(row: Promotion) => router.push(`/promotions/${row.id}`)"
     >
       <template #cell-name="{ row }">
         <span class="font-medium">{{ row.name }}</span>

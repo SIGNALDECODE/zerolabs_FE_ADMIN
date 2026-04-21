@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { formatDate, formatNumber } from '~/utils/format'
+import type { NoticeDetail } from '~/types/content'
+import type { NoticeType, NoticeStatus } from '~/types/common'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,12 +14,18 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const notice = ref<any>(null)
+const notice = ref<NoticeDetail | null>(null)
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
-const form = reactive({
+const form = reactive<{
+  type: NoticeType
+  title: string
+  content: string
+  isPinned: boolean
+  status: NoticeStatus
+}>({
   type: 'NOTICE',
   title: '',
   content: '',
@@ -70,9 +78,9 @@ const submit = async () => {
   saving.value = true
   try {
     if (isNew) {
-      const newId: any = await noticeApi.create({ ...form })
+      const res = await noticeApi.create({ ...form })
       toast.success('공지를 등록했습니다.')
-      router.push(`/notices/${typeof newId === 'object' ? newId.id : newId}`)
+      router.push(`/notices/${res.id}`)
     } else {
       await noticeApi.update(id, { ...form })
       toast.success('공지를 수정했습니다.')
@@ -91,8 +99,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await noticeApi.remove(id)
-  router.push('/notices')
+  try {
+    await noticeApi.remove(id)
+    toast.success('공지를 삭제했습니다.')
+    router.push('/notices')
+  } catch (e) {
+    toast.error(e, '공지 삭제 실패')
+  }
 }
 
 onMounted(load)
@@ -129,12 +142,14 @@ useHead({ title: () => isNew ? '새 공지 작성 | ZeroLabs Admin' : `${notice.
       <CardContent class="pt-6 space-y-5">
         <div>
           <Label class="mb-1.5 block">카테고리 <span class="text-destructive">*</span></Label>
-          <select
-            v-model="form.type"
-            class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option v-for="(label, code) in typeLabels" :key="code" :value="code">{{ label }}</option>
-          </select>
+          <Select v-model="form.type">
+            <SelectTrigger class="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="(label, code) in typeLabels" :key="code" :value="String(code)">{{ label }}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div>
@@ -151,13 +166,15 @@ useHead({ title: () => isNew ? '새 공지 작성 | ZeroLabs Admin' : `${notice.
         <div class="grid grid-cols-2 gap-4">
           <div>
             <Label class="mb-1.5 block">상태</Label>
-            <select
-              v-model="form.status"
-              class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="ACTIVE">노출</option>
-              <option value="INACTIVE">비노출</option>
-            </select>
+            <Select v-model="form.status">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVE">노출</SelectItem>
+                <SelectItem value="INACTIVE">비노출</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div class="flex items-end">
             <label class="inline-flex items-center gap-2 h-10 cursor-pointer">

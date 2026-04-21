@@ -5,7 +5,7 @@ interface AdminUser {
   email: string
   name: string
   role: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 export const useAuthStore = defineStore('auth', {

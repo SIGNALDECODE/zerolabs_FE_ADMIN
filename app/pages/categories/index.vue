@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { CategoryNode } from '~/types/content'
+
 useHead({ title: '카테고리 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
 
@@ -18,8 +20,16 @@ interface CatNode {
   _expanded?: boolean
 }
 
+interface CategoryPayloadNode {
+  id: number | null
+  name: string
+  sortOrder: number
+  imageIndex: number | null
+  children: CategoryPayloadNode[]
+}
+
 const tree = ref<CatNode[]>([])
-const original = ref<any[]>([])
+const original = ref<CategoryNode[]>([])
 const deletedIds = ref<number[]>([])
 const loading = ref(false)
 const saving = ref(false)
@@ -28,7 +38,7 @@ const editing = ref(false)
 const countDeep = (list: CatNode[]): number =>
   list.reduce((n, c) => n + 1 + (c.children?.length ? countDeep(c.children) : 0), 0)
 
-const normalize = (list: any[]): CatNode[] =>
+const normalize = (list: CategoryNode[] | undefined): CatNode[] =>
   (list ?? []).map((c, i) => ({
     id: c.id ?? null,
     name: c.name ?? '',
@@ -42,7 +52,7 @@ const normalize = (list: any[]): CatNode[] =>
 const load = async () => {
   loading.value = true
   try {
-    original.value = (await categoryApi.list()) as any[]
+    original.value = await categoryApi.list()
     tree.value = normalize(original.value)
     deletedIds.value = []
   } finally { loading.value = false }
@@ -99,7 +109,7 @@ const addRoot = () => addChild(tree.value)
  * NOTE: 백엔드는 imageIndex=null 을 "이미지 없음" 과 "유지" 중 어느 쪽으로 해석하는지 확인 필요.
  * 현재는 기존 imageUrl 은 유지되는 것을 기대 (sync API 동작).
  */
-const buildPayload = (list: CatNode[], files: File[]): any[] =>
+const buildPayload = (list: CatNode[], files: File[]): CategoryPayloadNode[] =>
   list.map((n, i) => {
     let imageIndex: number | null = null
     if (n.imageFile) {
@@ -114,6 +124,21 @@ const buildPayload = (list: CatNode[], files: File[]): any[] =>
       children: n.children?.length ? buildPayload(n.children, files) : []
     }
   })
+
+/** 백엔드 CategoryException 에러 코드 → 한글 라벨. 미매핑 코드는 원본 노출. */
+const DELETE_FAIL_LABEL: Record<string, string> = {
+  CATEGORY_HAS_PRODUCTS: '하위 상품 존재',
+  CATEGORY_HAS_CHILDREN: '하위 카테고리 존재'
+}
+
+const summarizeFailures = (reasons: Record<string, string>, limit = 3): string => {
+  const entries = Object.entries(reasons)
+  const head = entries.slice(0, limit)
+    .map(([id, code]) => `#${id} (${DELETE_FAIL_LABEL[code] ?? code})`)
+    .join(', ')
+  const rest = entries.length - head.length
+  return rest > 0 ? `${head} 외 ${rest}건` : head
+}
 
 const save = async () => {
   const validateNames = (list: CatNode[]): boolean =>
@@ -133,9 +158,16 @@ const save = async () => {
     const fd = new FormData()
     fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
     for (const f of files) fd.append('categoryImages', f)
-    await categoryApi.sync(fd)
+    const res = await categoryApi.sync(fd)
     editing.value = false
-    toast.success(`카테고리를 동기화했습니다.${files.length ? ` (이미지 ${files.length}개 업로드)` : ''}`)
+
+    const imageNote = files.length ? ` (이미지 ${files.length}개 업로드)` : ''
+    if (res.failedIds.length > 0) {
+      // 생성/수정은 모두 성공했지만 일부 삭제가 실패한 케이스.
+      toast.warn(`동기화 완료 · 삭제 실패 ${res.failedIds.length}건: ${summarizeFailures(res.failedReasons)}${imageNote}`)
+    } else {
+      toast.success(`카테고리를 동기화했습니다.${imageNote}`)
+    }
     await load()
   } catch (e) {
     toast.error(e, '저장 실패')

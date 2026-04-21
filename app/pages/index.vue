@@ -1,25 +1,37 @@
 <script setup lang="ts">
+import type { OrderListItem } from '~/types/order'
+
 useHead({ title: '대시보드 | ZeroLabs Admin' })
 
 const orderApi = useAdminOrder()
 const claimApi = useAdminClaim()
 
-const orderStats = ref({ pending: 0, preparing: 0, shipping: 0, delivered: 0 })
-const recentOrders = ref<any[]>([])
+// 상태별 집계 (pending/preparing/shipping)는 현재 BE 에 전용 엔드포인트가 없어
+// 각 상태를 병렬로 count 조회 (size=1 로 totalElements 만 사용).
+const orderStats = ref({ pending: 0, preparing: 0, shipping: 0 })
+const recentOrders = ref<OrderListItem[]>([])
 const pendingClaims = ref(0)
 const loading = ref(false)
+
+const countByStatus = async (status: string): Promise<number> => {
+  const res = await orderApi.list({ status, page: 1, size: 1 }).catch(() => null)
+  return res?.totalElements ?? 0
+}
 
 const loadDashboard = async () => {
   loading.value = true
   try {
-    const [orders, claims] = await Promise.all([
+    const [orders, claims, pending, preparing, shipping] = await Promise.all([
       orderApi.list({ page: 1, size: 5 }).catch(() => null),
-      claimApi.list({ status: 'REQUESTED', page: 1, size: 1 }).catch(() => null)
+      claimApi.list({ status: 'REQUESTED', page: 1, size: 1 }).catch(() => null),
+      countByStatus('PENDING'),
+      countByStatus('PREPARING'),
+      countByStatus('SHIPPING')
     ])
 
-    recentOrders.value = orders?.content || []
-    orderStats.value = (orders as any)?.statusSummary || orderStats.value
-    pendingClaims.value = claims?.totalElements || 0
+    recentOrders.value = orders?.content ?? []
+    orderStats.value = { pending, preparing, shipping }
+    pendingClaims.value = claims?.totalElements ?? 0
   } finally {
     loading.value = false
   }
@@ -97,7 +109,7 @@ onMounted(loadDashboard)
               <TableCell class="font-mono text-xs">{{ order.orderNumber }}</TableCell>
               <TableCell><Badge variant="secondary">{{ order.status }}</Badge></TableCell>
               <TableCell>{{ order.grandTotal?.toLocaleString?.() ?? '-' }}원</TableCell>
-              <TableCell class="text-muted-foreground">{{ order.createdAt }}</TableCell>
+              <TableCell class="text-muted-foreground">{{ order.orderedAt }}</TableCell>
             </TableRow>
           </TableBody>
         </Table>

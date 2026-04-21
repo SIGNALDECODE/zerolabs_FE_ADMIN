@@ -1,4 +1,4 @@
-import type { NoticeType, NoticeStatus, InquiryStatus } from './common'
+import type { NoticeType, NoticeStatus, InquiryStatus, QnaStatus } from './common'
 
 export interface NoticeListItem {
   id: number
@@ -49,17 +49,24 @@ export interface InquiryDetail extends InquiryListItem {
   answeredAt?: string | null
 }
 
+/** 백엔드 `QnaResponse` */
 export interface Qna {
   id: number
   userId?: number
   productId: number
+  productName?: string
+  productThumbnailUrl?: string | null
   title: string
   question: string
   isSecret: boolean
   isAnswered: boolean
   answer?: string | null
+  answeredBy?: number | null
   answeredAt?: string | null
+  status?: QnaStatus
+  isVisible?: boolean
   createdAt: string
+  updatedAt?: string
 }
 
 export interface Review {
@@ -90,4 +97,16 @@ export interface CategoryNode {
   sortOrder?: number
   imageUrl?: string | null
   children?: CategoryNode[]
+}
+
+/**
+ * /admin/categories/sync 응답.
+ * - 생성/수정 실패는 트랜잭션 내에서 예외 throw → ApiError 로 매핑 (여기엔 포함되지 않음)
+ * - 여기에 실리는 실패는 **삭제 실패만** 해당 (하위 상품·하위 카테고리 존재 등)
+ * - Jackson 이 Map<Long, String> 을 JSON object 로 직렬화하므로 key 는 string.
+ */
+export interface CategorySyncResponse {
+  deletedIds: number[]
+  failedIds: number[]
+  failedReasons: Record<string, string>
 }

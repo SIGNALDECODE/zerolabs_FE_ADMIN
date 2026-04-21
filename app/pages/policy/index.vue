@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatCurrency, formatNumber } from '~/utils/format'
+import type { PolicyAllSettings, PolicyFormState } from '~/types/policy'
 
 useHead({ title: '운영 정책 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,16 +8,16 @@ definePageMeta({ layout: 'default' })
 const policyApi = useAdminPolicy()
 const toast = useToast()
 
-const policy = ref<any>(null)
+const policy = ref<PolicyAllSettings | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const editing = ref(false)
 
-const form = reactive<any>({
-  order: {} as any,
-  delivery: {} as any,
-  product: {} as any,
-  returnPolicy: {} as any
+const form = reactive<PolicyFormState>({
+  order: {},
+  delivery: {},
+  product: {},
+  returnPolicy: {}
 })
 
 const resetForm = () => {
@@ -24,7 +25,7 @@ const resetForm = () => {
   Object.assign(form.order, policy.value.order ?? {})
   Object.assign(form.delivery, policy.value.delivery ?? {})
   Object.assign(form.product, policy.value.product ?? {})
-  Object.assign(form.returnPolicy, policy.value.returnPolicy ?? policy.value.return ?? {})
+  Object.assign(form.returnPolicy, policy.value.returnPolicy ?? {})
 }
 
 const load = async () => {
@@ -38,14 +39,51 @@ const load = async () => {
 const startEdit = () => { editing.value = true }
 const cancelEdit = () => { editing.value = false; resetForm() }
 
+const toNum = (v: number | string | undefined): number | undefined =>
+  v === '' || v == null ? undefined : Number(v)
+
 const submit = async () => {
   saving.value = true
   try {
     await policyApi.update({
-      order: form.order,
-      delivery: form.delivery,
-      product: form.product,
-      returnPolicy: form.returnPolicy
+      order: {
+        minOrderAmount: toNum(form.order.minOrderAmount),
+        maxOrderAmount: toNum(form.order.maxOrderAmount),
+        maxOrderQuantity: toNum(form.order.maxOrderQuantity),
+        cancelHours: toNum(form.order.cancelHours),
+        autoConfirmDays: toNum(form.order.autoConfirmDays),
+        pointRate: toNum(form.order.pointRate),
+        pointMinOrder: toNum(form.order.pointMinOrder),
+        pointMinUse: toNum(form.order.pointMinUse),
+        pointMaxUseRate: toNum(form.order.pointMaxUseRate),
+        pointExpirationType: form.order.pointExpirationType
+      },
+      delivery: {
+        freeShippingAmount: toNum(form.delivery.freeShippingAmount),
+        baseShippingFee: toNum(form.delivery.baseShippingFee),
+        islandExtraFee: toNum(form.delivery.islandExtraFee),
+        islandRegions: form.delivery.islandRegions,
+        estimatedDays: form.delivery.estimatedDays,
+        guideText: form.delivery.guideText
+      },
+      product: {
+        defaultTaxRate: toNum(form.product.defaultTaxRate),
+        lowStockThreshold: toNum(form.product.lowStockThreshold),
+        maxOptions: toNum(form.product.maxOptions),
+        maxImages: toNum(form.product.maxImages),
+        showSoldout: form.product.showSoldout,
+        showStock: form.product.showStock,
+        guideText: form.product.guideText
+      },
+      returnPolicy: {
+        returnDays: toNum(form.returnPolicy.returnDays),
+        exchangeDays: toNum(form.returnPolicy.exchangeDays),
+        returnFee: toNum(form.returnPolicy.returnFee),
+        exchangeFee: toNum(form.returnPolicy.exchangeFee),
+        returnAddress: form.returnPolicy.returnAddress,
+        nonReturnable: form.returnPolicy.nonReturnable,
+        guideText: form.returnPolicy.guideText
+      }
     })
     editing.value = false
     toast.success('운영 정책을 저장했습니다.')
@@ -120,12 +158,17 @@ onMounted(load)
           </div>
           <div>
             <Label class="mb-1.5 block text-xs">적립금 유효기간</Label>
-            <select v-model="form.order.pointExpirationType" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="UNLIMITED">무제한</option>
-              <option value="1_YEAR">1년</option>
-              <option value="2_YEAR">2년</option>
-              <option value="3_YEAR">3년</option>
-            </select>
+            <Select v-model="form.order.pointExpirationType">
+              <SelectTrigger class="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="UNLIMITED">무제한</SelectItem>
+                <SelectItem value="1_YEAR">1년</SelectItem>
+                <SelectItem value="2_YEAR">2년</SelectItem>
+                <SelectItem value="3_YEAR">3년</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -254,9 +297,9 @@ onMounted(load)
       </DetailSection>
 
       <DetailSection title="배송 정책">
-        <DetailField label="기본 배송비" :value="formatCurrency(policy.delivery?.baseShippingFee ?? policy.delivery?.shippingFee)" />
-        <DetailField label="무료배송 기준" :value="formatCurrency(policy.delivery?.freeShippingAmount ?? policy.delivery?.freeShippingThreshold)" />
-        <DetailField label="도서산간 추가비" :value="formatCurrency(policy.delivery?.islandExtraFee ?? policy.delivery?.remoteAreaFee)" />
+        <DetailField label="기본 배송비" :value="formatCurrency(policy.delivery?.baseShippingFee)" />
+        <DetailField label="무료배송 기준" :value="formatCurrency(policy.delivery?.freeShippingAmount)" />
+        <DetailField label="도서산간 추가비" :value="formatCurrency(policy.delivery?.islandExtraFee)" />
         <DetailField label="예상 배송기간" :value="policy.delivery?.estimatedDays" />
       </DetailSection>
 

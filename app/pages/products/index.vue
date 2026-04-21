@@ -1,20 +1,29 @@
 <script setup lang="ts">
 import { formatCurrency, formatNumber } from '~/utils/format'
+import type { ProductListItem } from '~/types/product'
 
 useHead({ title: '상품 관리 | ZeroLabs Admin' })
 
 const productApi = useAdminProduct()
 
-const products = ref<any[]>([])
+const ALL = 'ALL'
+
+const products = ref<ProductListItem[]>([])
 const totalElements = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  status: '',
+  status: ALL as string,
   keyword: '',
   page: 1,
   size: 30
 })
+
+const displayPrice = (p: ProductListItem['price']): number | undefined => {
+  if (p == null) return undefined
+  if (typeof p === 'number') return p
+  return p.salePrice ?? p.finalPrice
+}
 
 const columns = [
   { key: 'thumbnailUrl', label: '이미지', width: '80px' },
@@ -28,7 +37,7 @@ const load = async () => {
   loading.value = true
   try {
     const data = await productApi.list({
-      status: filters.status || undefined,
+      status: filters.status === ALL ? undefined : filters.status,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -61,15 +70,17 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="handleSearch">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체</option>
-        <option value="ACTIVE">판매중</option>
-        <option value="ON_SALE">판매중</option>
-        <option value="INACTIVE">판매중지</option>
-        <option value="DRAFT">임시저장</option>
-        <option value="DISCONTINUED">단종</option>
-        <option value="SOLD_OUT">품절</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체</SelectItem>
+          <SelectItem value="ON_SALE">판매중</SelectItem>
+          <SelectItem value="SOLD_OUT">품절</SelectItem>
+          <SelectItem value="DISCONTINUED">단종</SelectItem>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="상품명 / SKU 검색" class="max-w-xs" @keyup.enter="handleSearch" />
     </FilterBar>
 
@@ -79,7 +90,7 @@ onMounted(load)
       :loading="loading"
       empty-message="상품이 없습니다."
       clickable
-      @row-click="(row: any) => navigateTo(`/products/${row.id}`)"
+      @row-click="(row: ProductListItem) => navigateTo(`/products/${row.id}`)"
     >
       <template #cell-thumbnailUrl="{ row }">
         <img v-if="row.thumbnailUrl" :src="row.thumbnailUrl" class="h-10 w-10 rounded object-cover" alt="">
@@ -89,7 +100,7 @@ onMounted(load)
         <span class="font-medium">{{ row.name }}</span>
       </template>
       <template #cell-price="{ row }">
-        {{ formatCurrency(row.price?.salePrice ?? row.price?.finalPrice ?? row.price) }}
+        {{ formatCurrency(displayPrice(row.price)) }}
       </template>
       <template #cell-stock="{ row }">
         {{ formatNumber(row.stock) }}

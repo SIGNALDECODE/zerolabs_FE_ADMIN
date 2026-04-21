@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Carrier, ShipmentTracking } from '~/composables/useAdminDelivery'
 
 useHead({ title: '배송 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
 
 const deliveryApi = useAdminDelivery()
 const toast = useToast()
-const router = useRouter()
 
-const carriers = ref<any[]>([])
+const carriers = ref<Carrier[]>([])
 const loadingCarriers = ref(false)
 
 const orderIdInput = ref('')
 const searched = ref<number | null>(null)
-const trackings = ref<any[]>([])
+const trackings = ref<ShipmentTracking[]>([])
 const searching = ref(false)
 
 const loadCarriers = async () => {
   loadingCarriers.value = true
   try {
-    carriers.value = (await deliveryApi.carriers()) as any[]
+    carriers.value = await deliveryApi.carriers()
   } finally { loadingCarriers.value = false }
 }
 
@@ -29,8 +29,8 @@ const search = async () => {
   searching.value = true
   searched.value = n
   try {
-    const data: any = await deliveryApi.trackingByOrder(n)
-    trackings.value = Array.isArray(data) ? data : [data].filter(Boolean)
+    const data = await deliveryApi.trackingByOrder(n)
+    trackings.value = Array.isArray(data) ? data : (data ? [data] : [])
   } catch {
     trackings.value = []
   } finally { searching.value = false }
@@ -93,24 +93,24 @@ onMounted(loadCarriers)
             </Card>
           </div>
           <div v-else class="space-y-4">
-            <Card v-for="t in trackings" :key="t.shipmentId ?? t.id">
+            <Card v-for="t in trackings" :key="t.shipmentId">
               <CardHeader class="pb-3">
                 <div class="flex items-start justify-between gap-2">
                   <div>
                     <CardTitle class="text-base">
-                      {{ t.carrierName ?? t.carrier?.name ?? '-' }}
+                      {{ t.carrierName ?? '-' }}
                       <span class="text-muted-foreground font-mono text-sm ml-2">
                         {{ t.trackingNumber ?? '-' }}
                       </span>
                     </CardTitle>
                     <CardDescription>
-                      배송 ID · {{ t.shipmentId ?? t.id }}
+                      배송 ID · {{ t.shipmentId }}
                       <span v-if="t.lastUpdated" class="ml-2">· 최근 업데이트 {{ formatDate(t.lastUpdated) }}</span>
                     </CardDescription>
                   </div>
                   <div class="flex items-center gap-2">
                     <StatusBadge :status="t.status" />
-                    <Button variant="outline" size="sm" @click="refresh(t.shipmentId ?? t.id)">
+                    <Button variant="outline" size="sm" @click="refresh(t.shipmentId)">
                       <Icon name="lucide:refresh-cw" size="14" class="mr-1" /> 갱신
                     </Button>
                   </div>

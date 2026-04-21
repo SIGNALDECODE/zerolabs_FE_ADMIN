@@ -10,10 +10,12 @@ import { toast } from 'vue-sonner'
  */
 export const useToast = () => {
   const error = (err: unknown, fallback = '요청 처리 중 오류가 발생했습니다.') => {
-    const message = typeof err === 'string'
-      ? err
-      : (err as any)?.message ?? (err as any)?.data?.errorCode?.message ?? fallback
-    toast.error(message)
+    if (typeof err === 'string') {
+      toast.error(err)
+      return
+    }
+    const e = (err && typeof err === 'object') ? err as { message?: string, data?: { errorCode?: { message?: string } } } : {}
+    toast.error(e.message ?? e.data?.errorCode?.message ?? fallback)
   }
 
   const success = (message: string) => toast.success(message)

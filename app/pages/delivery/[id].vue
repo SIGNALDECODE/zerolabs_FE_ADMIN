@@ -3,6 +3,7 @@
  * /delivery/[id] — id = shipmentId
  */
 import { formatDate } from '~/utils/format'
+import type { ShipmentTracking } from '~/composables/useAdminDelivery'
 
 definePageMeta({ layout: 'default' })
 
@@ -11,7 +12,7 @@ const deliveryApi = useAdminDelivery()
 const toast = useToast()
 
 const shipmentId = Number(route.params.id)
-const tracking = ref<any>(null)
+const tracking = ref<ShipmentTracking | null>(null)
 const loading = ref(true)
 
 const load = async () => {

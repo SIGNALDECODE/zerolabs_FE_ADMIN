@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Review } from '~/types/content'
 
 definePageMeta({ layout: 'default' })
 
@@ -9,7 +10,7 @@ const reviewApi = useAdminReview()
 
 const id = Number(route.params.id)
 
-const review = ref<any>(null)
+const review = ref<Review | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 

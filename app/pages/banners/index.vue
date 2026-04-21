@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Banner } from '~/types/marketing'
 
 useHead({ title: '배너 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -9,13 +10,15 @@ const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 
-const banners = ref<any[]>([])
+const ALL = 'ALL'
+
+const banners = ref<Banner[]>([])
 const total = ref(0)
 const loading = ref(false)
 
 const filters = reactive({
-  position: '',
-  status: '',
+  position: ALL as string,
+  status: ALL as string,
   page: 1,
   size: 30
 })
@@ -34,9 +37,9 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await bannerApi.list({
-      position: filters.position || undefined,
-      status: filters.status || undefined,
+    const data = await bannerApi.list({
+      position: filters.position === ALL ? undefined : filters.position,
+      status: filters.status === ALL ? undefined : filters.status,
       page: filters.page,
       size: filters.size
     })
@@ -48,7 +51,7 @@ const load = async () => {
 const search = () => { filters.page = 1; load() }
 const goPage = (p: number) => { filters.page = p; load() }
 
-const remove = async (b: any) => {
+const remove = async (b: Banner) => {
   const ok = await confirm.ask('배너 삭제', {
     description: `"${b.title}"을(를) 삭제합니다.`,
     confirmText: '삭제',
@@ -76,19 +79,29 @@ onMounted(load)
     </PageHeader>
 
     <FilterBar @search="search">
-      <select v-model="filters.position" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 위치</option>
-        <option value="HERO">HERO</option>
-        <option value="SLIDE">SLIDE</option>
-        <option value="HALF">HALF</option>
-        <option value="FULL">FULL</option>
-      </select>
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체 상태</option>
-        <option value="ACTIVE">활성</option>
-        <option value="INACTIVE">비활성</option>
-        <option value="SCHEDULED">예약</option>
-      </select>
+      <Select v-model="filters.position">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 위치</SelectItem>
+          <SelectItem value="HERO">HERO</SelectItem>
+          <SelectItem value="SLIDE">SLIDE</SelectItem>
+          <SelectItem value="HALF">HALF</SelectItem>
+          <SelectItem value="FULL">FULL</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체 상태</SelectItem>
+          <SelectItem value="ACTIVE">활성</SelectItem>
+          <SelectItem value="INACTIVE">비활성</SelectItem>
+          <SelectItem value="SCHEDULED">예약</SelectItem>
+        </SelectContent>
+      </Select>
     </FilterBar>
 
     <DataTable
@@ -97,7 +110,7 @@ onMounted(load)
       :loading="loading"
       empty-message="배너가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/banners/${row.id}`)"
+      @row-click="(row: Banner) => router.push(`/banners/${row.id}`)"
     >
       <template #cell-imageUrl="{ row }">
         <img v-if="row.imageUrl" :src="row.imageUrl" class="h-10 w-16 rounded object-cover" />

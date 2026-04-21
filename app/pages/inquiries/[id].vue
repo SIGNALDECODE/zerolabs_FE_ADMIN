@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { InquiryDetail } from '~/types/content'
 
 definePageMeta({ layout: 'default' })
 
@@ -7,10 +8,11 @@ const route = useRoute()
 const router = useRouter()
 const inquiryApi = useAdminInquiry()
 const confirm = useConfirm()
+const toast = useToast()
 
 const id = Number(route.params.id)
 
-const inquiry = ref<any>(null)
+const inquiry = ref<InquiryDetail | null>(null)
 const loading = ref(true)
 const answer = ref('')
 const saving = ref(false)
@@ -41,8 +43,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await inquiryApi.remove(id)
-  router.push('/inquiries')
+  try {
+    await inquiryApi.remove(id)
+    toast.success('문의를 삭제했습니다.')
+    router.push('/inquiries')
+  } catch (e) {
+    toast.error(e, '문의 삭제 실패')
+  }
 }
 
 const statusLabels: Record<string, string> = { WAITING: '대기', ANSWERED: '답변완료' }

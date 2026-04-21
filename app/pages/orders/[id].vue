@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate, formatPhone } from '~/utils/format'
+import type { OrderDetail, OrderItem, OrderShipping } from '~/types/order'
+import type { Carrier } from '~/composables/useAdminDelivery'
 
 definePageMeta({ layout: 'default' })
 
@@ -9,16 +11,25 @@ const deliveryApi = useAdminDelivery()
 const toast = useToast()
 
 const id = Number(route.params.id)
-const order = ref<any>(null)
+const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 
 const shipmentOpen = ref(false)
-const carriers = ref<any[]>([])
+const carriers = ref<Carrier[]>([])
 const creatingShipment = ref(false)
-const shipmentForm = reactive({
-  carrierId: null as number | null,
+const shipmentForm = reactive<{
+  carrierId: number | null
+  trackingNumber: string
+  items: { orderItemId: number, quantity: number, productName?: string, max?: number, selected: boolean }[]
+}>({
+  carrierId: null,
   trackingNumber: '',
-  items: [] as { orderItemId: number, quantity: number, productName?: string, max?: number, selected: boolean }[]
+  items: []
+})
+
+const shipmentCarrierIdStr = computed<string | undefined>({
+  get: () => shipmentForm.carrierId != null ? String(shipmentForm.carrierId) : undefined,
+  set: v => { shipmentForm.carrierId = v != null ? Number(v) : null }
 })
 
 const load = async () => {
@@ -31,14 +42,14 @@ const load = async () => {
 }
 
 const loadCarriers = async () => {
-  try { carriers.value = (await deliveryApi.carriers()) as any[] } catch { carriers.value = [] }
+  try { carriers.value = await deliveryApi.carriers() } catch { carriers.value = [] }
 }
 
 const openShipment = () => {
   shipmentForm.carrierId = null
   shipmentForm.trackingNumber = ''
-  shipmentForm.items = (order.value?.items ?? []).map((it: any) => ({
-    orderItemId: it.orderItemId ?? it.id,
+  shipmentForm.items = (order.value?.items ?? []).map((it: OrderItem) => ({
+    orderItemId: it.orderItemId,
     productName: [it.productName, it.variantName].filter(Boolean).join(' / '),
     quantity: it.quantity ?? 1,
     max: it.quantity ?? 1,
@@ -70,8 +81,8 @@ const submitShipment = async () => {
 onMounted(() => { load(); loadCarriers() })
 useHead({ title: () => `주문 ${order.value?.orderNumber ?? ''} | ZeroLabs Admin` })
 
-const addressLine = (s: any) =>
-  [s?.postalCode, s?.address, s?.addressDetail].filter(Boolean).join(' ')
+const addressLine = (s: OrderShipping | undefined) =>
+  [s?.postalCode, s?.address].filter(Boolean).join(' ')
 </script>
 
 <template>
@@ -117,7 +128,7 @@ const addressLine = (s: any) =>
           <DetailField label="수령인" :value="order.shipping?.recipientName" />
           <DetailField label="연락처" :value="formatPhone(order.shipping?.recipientPhone)" />
           <DetailField label="주소" :value="addressLine(order.shipping)" full />
-          <DetailField label="배송 요청" :value="order.shipping?.requestMessage ?? '-'" full />
+          <DetailField label="배송 요청" :value="order.shipping?.deliveryMessage ?? '-'" full />
         </DetailSection>
       </div>
 
@@ -134,12 +145,21 @@ const addressLine = (s: any) =>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow v-for="item in order.items" :key="item.orderItemId ?? item.id">
-                <TableCell class="font-medium">{{ item.productName }}</TableCell>
+              <TableRow v-for="item in order.items" :key="item.orderItemId">
+                <TableCell>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <img
+                      v-if="item.imageUrl"
+                      :src="item.imageUrl"
+                      class="h-8 w-8 rounded border object-cover shrink-0"
+                    />
+                    <span class="font-medium truncate">{{ item.productName }}</span>
+                  </div>
+                </TableCell>
                 <TableCell>{{ item.variantName ?? '-' }}</TableCell>
                 <TableCell class="text-right">{{ item.quantity }}</TableCell>
-                <TableCell class="text-right">{{ formatCurrency(item.totalPrice ?? item.price) }}</TableCell>
-                <TableCell><StatusBadge :status="item.status" /></TableCell>
+                <TableCell class="text-right">{{ formatCurrency(item.subtotal) }}</TableCell>
+                <TableCell><StatusBadge :status="item.orderItemStatus" /></TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -157,11 +177,10 @@ const addressLine = (s: any) =>
         </DetailSection>
 
         <DetailSection title="금액 요약">
-          <DetailField label="상품 금액" :value="formatCurrency(order.summary?.itemsTotal)" />
-          <DetailField label="배송비" :value="formatCurrency(order.summary?.shippingFee)" />
-          <DetailField label="쿠폰 할인" :value="formatCurrency(order.summary?.couponDiscount)" />
-          <DetailField label="포인트 사용" :value="formatCurrency(order.summary?.pointUsed)" />
-          <DetailField label="총 결제금액" :value="formatCurrency(order.summary?.grandTotal ?? order.grandTotal)" />
+          <DetailField label="상품 금액" :value="formatCurrency(order.summary?.subtotal)" />
+          <DetailField label="배송비" :value="formatCurrency(order.summary?.shippingTotal)" />
+          <DetailField label="할인" :value="formatCurrency(order.summary?.discountTotal)" />
+          <DetailField label="총 결제금액" :value="formatCurrency(order.summary?.grandTotal)" />
         </DetailSection>
       </div>
 
@@ -169,13 +188,16 @@ const addressLine = (s: any) =>
         <div class="col-span-2">
           <ul class="space-y-2">
             <li
-              v-for="(h, i) in (order.combinedHistory ?? order.history)"
+              v-for="(h, i) in (order.combinedHistory ?? order.history ?? [])"
               :key="i"
               class="flex items-start gap-3 text-sm pb-2 border-b last:border-0"
             >
-              <span class="shrink-0 text-xs text-muted-foreground font-mono">{{ formatDate(h.createdAt ?? h.at) }}</span>
-              <span class="shrink-0"><StatusBadge :status="h.status ?? h.type" /></span>
-              <span class="text-muted-foreground">{{ h.message ?? h.description ?? h.note }}</span>
+              <span class="shrink-0 text-xs text-muted-foreground font-mono">{{ formatDate(h.createdAt) }}</span>
+              <span class="shrink-0"><StatusBadge :status="h.toStatus" /></span>
+              <span class="text-muted-foreground flex-1">
+                {{ 'note' in h ? h.note : ('reason' in h ? h.reason : '') }}
+              </span>
+              <span v-if="h.createdByName" class="shrink-0 text-xs text-muted-foreground">{{ h.createdByName }}</span>
             </li>
           </ul>
         </div>
@@ -198,10 +220,14 @@ const addressLine = (s: any) =>
           <div class="grid gap-3 grid-cols-2">
             <div>
               <Label class="mb-1.5 block text-xs">택배사 <span class="text-destructive">*</span></Label>
-              <select v-model="shipmentForm.carrierId" class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-                <option :value="null">선택…</option>
-                <option v-for="c in carriers" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
+              <Select v-model="shipmentCarrierIdStr">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="선택…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="c in carriers" :key="c.id" :value="String(c.id)">{{ c.name }}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label class="mb-1.5 block text-xs">송장번호 <span class="text-destructive">*</span></Label>

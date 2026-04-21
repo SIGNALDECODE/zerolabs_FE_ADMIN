@@ -22,8 +22,8 @@ const handleSubmit = async () => {
   try {
     await authStore.loginWith({ email: form.email, password: form.password })
     router.push(redirectPath.value)
-  } catch (err: any) {
-    errorMessage.value = err?.message || '로그인에 실패했습니다.'
+  } catch (err) {
+    errorMessage.value = (err as { message?: string })?.message || '로그인에 실패했습니다.'
   } finally {
     submitting.value = false
   }

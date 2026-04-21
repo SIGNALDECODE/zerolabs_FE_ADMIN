@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { formatDate, formatPhone } from '~/utils/format'
+import type { AdminDetail } from '~/types/user'
+import type { UserStatus, UserType } from '~/types/common'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,11 +14,9 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const admin = ref<any>(null)
+const admin = ref<AdminDetail | null>(null)
 const loading = ref(!isNew)
 const saving = ref(false)
-
-import type { UserStatus, UserType } from '~/types/common'
 
 const roleLabels: Record<string, string> = {
   ADMIN: '최고관리자', STAFF: '운영자', USER: '일반'
@@ -50,16 +50,15 @@ const submit = async () => {
   if (!form.name.trim()) return toast.error('이름은 필수입니다.')
   saving.value = true
   try {
-    const res: any = await adminsApi.create({
+    const res = await adminsApi.create({
       email: form.email,
       password: form.password,
       name: form.name,
       phone: form.phone || undefined,
       role: form.role
     })
-    const newId = typeof res === 'object' ? (res.id ?? res) : res
     toast.success('관리자를 등록했습니다.')
-    router.push(`/admins/${newId}`)
+    router.push(`/admins/${res.id}`)
   } catch (e) {
     toast.error(e, '등록 실패')
   } finally { saving.value = false }
@@ -106,9 +105,9 @@ useHead({ title: () => isNew ? '관리자 등록 | ZeroLabs Admin' : `${admin.va
       <template #actions>
         <template v-if="!isNew && admin">
           <Badge variant="outline">
-            {{ roleLabels[admin.userType ?? admin.role] ?? admin.userType ?? admin.role }}
+            {{ roleLabels[admin.role ?? ''] ?? admin.role }}
           </Badge>
-          <StatusBadge :status="admin.status" />
+          <StatusBadge :status="admin.user_status" />
         </template>
       </template>
     </DetailHeader>
@@ -142,13 +141,15 @@ useHead({ title: () => isNew ? '관리자 등록 | ZeroLabs Admin' : `${admin.va
 
         <div>
           <Label class="mb-1.5 block">역할 <span class="text-destructive">*</span></Label>
-          <select
-            v-model="form.role"
-            class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="STAFF">운영자 (STAFF)</option>
-            <option value="ADMIN">최고관리자 (ADMIN)</option>
-          </select>
+          <Select v-model="form.role">
+            <SelectTrigger class="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="STAFF">운영자 (STAFF)</SelectItem>
+              <SelectItem value="ADMIN">최고관리자 (ADMIN)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div class="flex justify-end gap-2 pt-4 border-t">
@@ -166,10 +167,12 @@ useHead({ title: () => isNew ? '관리자 등록 | ZeroLabs Admin' : `${admin.va
         <DetailField label="이름" :value="admin.name" />
         <DetailField label="이메일" :value="admin.email" />
         <DetailField label="연락처" :value="formatPhone(admin.phone)" />
-        <DetailField label="상태" :value="admin.status" />
-        <DetailField label="권한" :value="roleLabels[admin.userType ?? admin.role] ?? admin.userType ?? admin.role" />
-        <DetailField label="가입일" :value="formatDate(admin.createdAt)" />
-        <DetailField label="최근 로그인" :value="formatDate(admin.lastLoginAt)" />
+        <DetailField label="상태" :value="admin.user_status" />
+        <DetailField label="권한" :value="roleLabels[admin.role ?? ''] ?? admin.role" />
+        <DetailField label="가입일" :value="formatDate(admin.created_at)" />
+        <DetailField label="최근 로그인" :value="formatDate(admin.last_login_at)" />
+        <DetailField label="비밀번호 변경일" :value="formatDate(admin.password_changed_at)" />
+        <DetailField label="최근 로그인 IP" :value="admin.last_login_ip" />
 
         <template #footer>
           <div class="flex items-center gap-2">

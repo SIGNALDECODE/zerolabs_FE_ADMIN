@@ -3,6 +3,7 @@
  * /refunds/[id] — id는 orderId로 취급 (백엔드에 단일 환불 조회 엔드포인트 없음).
  */
 import { formatCurrency, formatDate } from '~/utils/format'
+import type { RefundRecord } from '~/types/claim'
 
 definePageMeta({ layout: 'default' })
 
@@ -11,13 +12,13 @@ const router = useRouter()
 const refundApi = useAdminRefund()
 
 const orderId = Number(route.params.id)
-const refunds = ref<any[]>([])
+const refunds = ref<RefundRecord[]>([])
 const loading = ref(true)
 
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await refundApi.listByOrder(orderId)
+    const data = await refundApi.listByOrder(orderId)
     refunds.value = Array.isArray(data) ? data : []
   } finally {
     loading.value = false

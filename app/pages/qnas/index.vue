@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Qna } from '~/types/content'
 
 useHead({ title: 'Q&A 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,17 +8,24 @@ definePageMeta({ layout: 'default' })
 const qnaApi = useAdminQna()
 const router = useRouter()
 
-const qnas = ref<any[]>([])
+const ALL = 'ALL'
+
+type QnaStatusOption = { code: string, description: string } | string
+
+const qnas = ref<Qna[]>([])
 const total = ref(0)
 const loading = ref(false)
-const statuses = ref<any[]>([])
+const statuses = ref<QnaStatusOption[]>([])
 
 const filters = reactive({
-  status: '',
+  status: ALL as string,
   keyword: '',
   page: 1,
   size: 30
 })
+
+const statusCode = (s: QnaStatusOption): string => typeof s === 'string' ? s : s.code
+const statusLabel = (s: QnaStatusOption): string => typeof s === 'string' ? s : s.description
 
 const columns = [
   { key: 'id', label: 'ID', width: '64px' },
@@ -32,8 +40,8 @@ const columns = [
 const load = async () => {
   loading.value = true
   try {
-    const data: any = await qnaApi.list({
-      status: filters.status || undefined,
+    const data = await qnaApi.list({
+      status: filters.status === ALL ? undefined : filters.status,
       keyword: filters.keyword || undefined,
       page: filters.page,
       size: filters.size
@@ -46,7 +54,7 @@ const load = async () => {
 }
 
 const loadStatuses = async () => {
-  try { statuses.value = await qnaApi.statuses() as any[] } catch { statuses.value = [] }
+  try { statuses.value = await qnaApi.statuses() } catch { statuses.value = [] }
 }
 
 const search = () => { filters.page = 1; load() }
@@ -65,14 +73,21 @@ onMounted(() => {
     <PageHeader title="Q&A 관리" :description="`총 ${total.toLocaleString()}건 · 상품 문의`" />
 
     <FilterBar @search="search">
-      <select v-model="filters.status" class="h-10 rounded-md border border-input bg-background px-3 text-sm">
-        <option value="">전체</option>
-        <option v-for="s in statuses" :key="s.code ?? s" :value="s.code ?? s">
-          {{ s.description ?? s.label ?? s }}
-        </option>
-        <option v-if="!statuses.length" value="ANSWERED">답변완료</option>
-        <option v-if="!statuses.length" value="WAITING">미답변</option>
-      </select>
+      <Select v-model="filters.status">
+        <SelectTrigger class="w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem :value="ALL">전체</SelectItem>
+          <SelectItem v-for="s in statuses" :key="statusCode(s)" :value="statusCode(s)">
+            {{ statusLabel(s) }}
+          </SelectItem>
+          <template v-if="!statuses.length">
+            <SelectItem value="ANSWERED">답변완료</SelectItem>
+            <SelectItem value="WAITING">미답변</SelectItem>
+          </template>
+        </SelectContent>
+      </Select>
       <Input v-model="filters.keyword" placeholder="제목 / 내용 검색" class="max-w-xs" @keyup.enter="search" />
     </FilterBar>
 
@@ -82,7 +97,7 @@ onMounted(() => {
       :loading="loading"
       empty-message="Q&A 가 없습니다."
       clickable
-      @row-click="(row: any) => router.push(`/qnas/${row.id}`)"
+      @row-click="(row: Qna) => router.push(`/qnas/${row.id}`)"
     >
       <template #cell-id="{ row }">
         <span class="text-muted-foreground text-xs">{{ row.id }}</span>

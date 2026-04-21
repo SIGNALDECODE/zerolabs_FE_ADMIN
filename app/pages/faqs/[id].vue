@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import type { Faq, FaqCategory } from '~/types/content'
 
 definePageMeta({ layout: 'default' })
 
@@ -12,16 +13,25 @@ const confirm = useConfirm()
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
 
-const faq = ref<any>(null)
-const categories = ref<any[]>([])
+const faq = ref<Faq | null>(null)
+const categories = ref<FaqCategory[]>([])
 const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
-const form = reactive({
-  categoryId: null as number | null,
+const form = reactive<{
+  categoryId: number | null
+  question: string
+  answer: string
+}>({
+  categoryId: null,
   question: '',
   answer: ''
+})
+
+const categoryIdStr = computed<string | undefined>({
+  get: () => form.categoryId != null ? String(form.categoryId) : undefined,
+  set: v => { form.categoryId = v != null ? Number(v) : null }
 })
 
 const load = async () => {
@@ -38,7 +48,7 @@ const load = async () => {
 }
 
 const loadCategories = async () => {
-  try { categories.value = (await faqApi.categories()) as any[] } catch { categories.value = [] }
+  try { categories.value = await faqApi.categories() } catch { categories.value = [] }
 }
 
 const startEdit = () => { editing.value = true }
@@ -58,14 +68,13 @@ const submit = async () => {
   saving.value = true
   try {
     if (isNew) {
-      const res: any = await faqApi.create({
-        categoryId: form.categoryId,
+      const res = await faqApi.create({
+        categoryId: form.categoryId!,
         question: form.question,
         answer: form.answer
       })
-      const newId = typeof res === 'object' ? (res.id ?? res) : res
       toast.success('FAQ 를 등록했습니다.')
-      router.push(`/faqs/${newId}`)
+      router.push(`/faqs/${res.id}`)
     } else {
       await faqApi.update(id, {
         categoryId: form.categoryId,
@@ -88,8 +97,13 @@ const remove = async () => {
     tone: 'danger'
   })
   if (!ok) return
-  await faqApi.remove(id)
-  router.push('/faqs')
+  try {
+    await faqApi.remove(id)
+    toast.success('FAQ 를 삭제했습니다.')
+    router.push('/faqs')
+  } catch (e) {
+    toast.error(e, 'FAQ 삭제 실패')
+  }
 }
 
 onMounted(() => { load(); loadCategories() })
@@ -122,15 +136,16 @@ useHead({ title: () => isNew ? '새 FAQ | ZeroLabs Admin' : `${faq.value?.questi
       <CardContent class="pt-6 space-y-5">
         <div>
           <Label class="mb-1.5 block">카테고리 <span class="text-destructive">*</span></Label>
-          <select
-            v-model="form.categoryId"
-            class="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option :value="null" disabled>카테고리 선택</option>
-            <option v-for="c in categories" :key="c.id" :value="c.id">
-              {{ c.name }}{{ c.isActive === false ? ' (비활성)' : '' }}
-            </option>
-          </select>
+          <Select v-model="categoryIdStr">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="카테고리 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="c in categories" :key="c.id" :value="String(c.id)">
+                {{ c.name }}{{ c.isActive === false ? ' (비활성)' : '' }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <p v-if="!categories.length" class="mt-1 text-xs text-muted-foreground">
             카테고리가 없습니다. 목록에서 "카테고리 추가" 를 먼저 실행하세요.
           </p>
