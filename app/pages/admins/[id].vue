@@ -19,7 +19,7 @@ const loading = ref(!isNew)
 const saving = ref(false)
 
 const roleLabels: Record<string, string> = {
-  ADMIN: '최고관리자', STAFF: '운영자', USER: '일반'
+  ADMIN: '최고관리자', STAFF: '운영자', CUSTOMER: '일반'
 }
 
 const form = reactive<{

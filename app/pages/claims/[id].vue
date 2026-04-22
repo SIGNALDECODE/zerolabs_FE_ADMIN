@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
-import type { OrderClaim } from '~/types/claim'
+import type { OrderClaim, ClaimItemSelectedOption } from '~/types/claim'
+
+/** selectedOptions(JSON 스냅샷)을 "맛: 치킨, 중량: 200g" 형태로 join */
+const formatSelectedOptions = (opts: ClaimItemSelectedOption[] | null | undefined): string => {
+  if (!opts?.length) return '-'
+  return opts
+    .map(o => `${o.optionName ?? '옵션'}: ${o.valueName ?? ''}`.trim())
+    .filter(Boolean)
+    .join(', ')
+}
 
 definePageMeta({ layout: 'default' })
 
@@ -246,18 +255,14 @@ const shippingTitle = computed(() => ({
                 <TableHead>옵션</TableHead>
                 <TableHead class="text-right">수량</TableHead>
                 <TableHead>주문상태</TableHead>
-                <TableHead v-if="claim.claimType === 'EXCHANGE'">교환 옵션</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               <TableRow v-for="item in claim.items" :key="item.orderItemId">
                 <TableCell class="font-medium">{{ item.productName }}</TableCell>
-                <TableCell>{{ item.variantName ?? '-' }}</TableCell>
+                <TableCell>{{ formatSelectedOptions(item.selectedOptions) }}</TableCell>
                 <TableCell class="text-right">{{ item.quantity }}</TableCell>
                 <TableCell><StatusBadge :status="item.orderItemStatus" /></TableCell>
-                <TableCell v-if="claim.claimType === 'EXCHANGE'" class="text-muted-foreground">
-                  {{ item.exchangeProductName ? `${item.exchangeProductName} / ${item.exchangeVariantName ?? '-'}` : '-' }}
-                </TableCell>
               </TableRow>
             </TableBody>
           </Table>

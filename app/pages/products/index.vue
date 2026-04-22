@@ -19,18 +19,13 @@ const filters = reactive({
   size: 30
 })
 
-const displayPrice = (p: ProductListItem['price']): number | undefined => {
-  if (p == null) return undefined
-  if (typeof p === 'number') return p
-  return p.salePrice ?? p.finalPrice
-}
-
 const columns = [
-  { key: 'thumbnailUrl', label: '이미지', width: '80px' },
+  { key: 'thumbnailUrl', label: '이미지', width: '72px' },
   { key: 'name', label: '상품명' },
-  { key: 'price', label: '가격', align: 'right' as const },
-  { key: 'stock', label: '재고', align: 'right' as const },
-  { key: 'status', label: '상태' }
+  { key: 'categoryNames', label: '카테고리', width: '160px' },
+  { key: 'price', label: '가격', align: 'right' as const, width: '160px' },
+  { key: 'stockQuantity', label: '재고', align: 'right' as const, width: '80px' },
+  { key: 'status', label: '상태', width: '90px' }
 ]
 
 const load = async () => {
@@ -53,6 +48,8 @@ const handleSearch = () => {
   filters.page = 1
   load()
 }
+
+const goPage = (p: number) => { filters.page = p; load() }
 
 watchDebounced(() => filters.keyword, handleSearch, { debounce: 400 })
 
@@ -81,7 +78,7 @@ onMounted(load)
           <SelectItem value="DISCONTINUED">단종</SelectItem>
         </SelectContent>
       </Select>
-      <Input v-model="filters.keyword" placeholder="상품명 / SKU 검색" class="max-w-xs" @keyup.enter="handleSearch" />
+      <Input v-model="filters.keyword" placeholder="상품명 검색" class="max-w-xs" @keyup.enter="handleSearch" />
     </FilterBar>
 
     <DataTable
@@ -93,21 +90,53 @@ onMounted(load)
       @row-click="(row: ProductListItem) => navigateTo(`/products/${row.id}`)"
     >
       <template #cell-thumbnailUrl="{ row }">
-        <img v-if="row.thumbnailUrl" :src="row.thumbnailUrl" class="h-10 w-10 rounded object-cover" alt="">
-        <div v-else class="h-10 w-10 rounded bg-muted" />
+        <img v-if="row.thumbnailUrl" :src="row.thumbnailUrl" class="h-10 w-10 rounded object-cover border" alt="" />
+        <div v-else class="h-10 w-10 rounded bg-muted grid place-items-center text-muted-foreground">
+          <Icon name="lucide:image-off" size="14" />
+        </div>
       </template>
       <template #cell-name="{ row }">
-        <span class="font-medium">{{ row.name }}</span>
+        <div class="min-w-0">
+          <div class="font-medium truncate">{{ row.name }}</div>
+          <div v-if="row.tags?.length" class="flex flex-wrap gap-0.5 mt-0.5">
+            <span
+              v-for="tag in row.tags.slice(0, 3)"
+              :key="tag"
+              class="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground"
+            >
+              {{ tag }}
+            </span>
+            <span v-if="row.tags.length > 3" class="text-[10px] text-muted-foreground">+{{ row.tags.length - 3 }}</span>
+          </div>
+          <div v-if="row.optionCount > 0" class="text-[10px] text-muted-foreground mt-0.5">
+            옵션 {{ row.optionCount }}개
+          </div>
+        </div>
+      </template>
+      <template #cell-categoryNames="{ row }">
+        <span class="text-xs text-muted-foreground">
+          {{ row.categoryNames?.length ? row.categoryNames.join(', ') : '-' }}
+        </span>
       </template>
       <template #cell-price="{ row }">
-        {{ formatCurrency(displayPrice(row.price)) }}
+        <div class="text-right">
+          <div class="font-medium">{{ formatCurrency(row.salePrice) }}</div>
+          <div v-if="row.discountRate" class="text-xs text-destructive">
+            {{ row.discountRate }}
+            <span class="text-muted-foreground ml-1 line-through font-normal">{{ formatCurrency(row.regularPrice) }}</span>
+          </div>
+        </div>
       </template>
-      <template #cell-stock="{ row }">
-        {{ formatNumber(row.stock) }}
+      <template #cell-stockQuantity="{ row }">
+        <span :class="row.stockQuantity === 0 ? 'text-destructive' : ''">
+          {{ formatNumber(row.stockQuantity) }}
+        </span>
       </template>
       <template #cell-status="{ row }">
         <StatusBadge :status="row.status" />
       </template>
     </DataTable>
+
+    <Pagination :page="filters.page" :size="filters.size" :total="totalElements" @change="goPage" />
   </div>
 </template>

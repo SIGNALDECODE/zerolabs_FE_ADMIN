@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
+import { formatCurrency, formatNumber } from '~/utils/format'
 import type {
   ProductDetail,
-  ProductOptionGroup,
+  ProductOption,
   ProductOptionValue,
-  ProductVariant,
   ProductTag,
   ProductFormState,
-  ProductOptionGroupForm,
-  ProductVariantForm
+  ProductOptionForm,
+  ProductOptionValueForm
 } from '~/types/product'
 import type { CategoryNode } from '~/types/content'
 
@@ -35,14 +34,7 @@ const editing = ref(isNew)
 
 const imageFile = ref<File | null>(null)
 const imagePreview = ref<string>('')
-
-/**
- * "옵션 없는 단일 재고" 경로.
- * 백엔드는 Product 에 재고 필드가 없고 variant.stockQuantity 에만 재고를 둔다.
- * 옵션을 쓰지 않는 상품을 지원하려면 FE 가 자동으로 name="기본" 인 단일 variant 를 조립해
- * 주어야 한다. 이 ref 는 그 단일 variant 의 재고 값을 담는 편집 필드다.
- */
-const defaultStock = ref<number | string>(0)
+const removeImage = ref(false)
 
 const form = reactive<ProductFormState>({
   name: '',
@@ -57,35 +49,27 @@ const form = reactive<ProductFormState>({
   discountValue: 0,
   status: 'ON_SALE',
   maxPurchaseQuantity: undefined,
+  stockQuantity: 0,
   primaryImageAltText: '',
-  options: [],
-  variants: []
+  options: []
 })
 
-const baseSku = computed(() => (form.name || 'SKU').replace(/\s+/g, '-').toUpperCase().slice(0, 20))
-
 /**
- * 전체 재고 합계 — 옵션 여부에 따라 소스가 다르다.
- * 백엔드가 저장 시 `autoSoldOutIfNoStock` 훅으로 재고 합계가 0 이면 status 를 SOLD_OUT 로
- * 강제 복귀시키기 때문에, 관리자가 status=ON_SALE 로 바꾸면서 재고를 0으로 두는 함정을 경고한다.
+ * 전체 재고 합계 — 옵션 유무에 따라 소스가 다르다.
+ * - 옵션 있음 → 각 옵션값의 stockQuantity 합계
+ * - 옵션 없음 → Product top-level stockQuantity
+ *
+ * 백엔드 autoSoldOutIfNoStock 훅은 저장 시 이 합계가 0 이면 status 를 SOLD_OUT 으로
+ * 강제 복귀시킨다. 수정 시 ON_SALE + 재고 0 조합은 FE 에서 먼저 차단한다.
  */
-const totalVariantStock = computed(() => {
+const totalStock = computed(() => {
   if (form.options.length > 0) {
-    return form.variants.reduce((sum, v) => sum + Number(v.stockQuantity || 0), 0)
+    return form.options.reduce(
+      (sum, g) => sum + g.values.reduce((s, v) => s + (Number(v.stockQuantity) || 0), 0),
+      0
+    )
   }
-  return Math.max(0, Number(defaultStock.value) || 0)
-})
-
-/**
- * 조회 모드에서 "옵션 없는 단일 기본 variant" 인지 판정.
- * 참일 때 조회 UI 는 변형 테이블 대신 기본 정보 섹션에 "재고: N개" 한 줄만 노출한다.
- */
-const isSingleDefaultVariant = computed(() => {
-  const p = product.value
-  if (!p) return false
-  const optionCount = p.options?.length ?? 0
-  const variantCount = p.variants?.length ?? 0
-  return optionCount === 0 && variantCount === 1
+  return Math.max(0, Number(form.stockQuantity) || 0)
 })
 
 /** 정가-판매가 차이 기반 자동 할인 프리뷰. 저장에는 영향 없음. */
@@ -101,43 +85,26 @@ const discountPreview = computed(() => {
 const statusLabel = computed(() => {
   const status = product.value?.status ?? ''
   const map: Record<string, string> = {
-    ACTIVE: '판매중', ON_SALE: '판매중', INACTIVE: '판매중지', DRAFT: '임시저장', DISCONTINUED: '단종', SOLD_OUT: '품절'
+    ACTIVE: '판매중', ON_SALE: '판매중', INACTIVE: '판매중지', DRAFT: '임시저장',
+    DISCONTINUED: '단종', SOLD_OUT: '품절'
   }
   return map[status] ?? status
 })
 
-const optionValueName = (v: ProductOptionValue | string | null | undefined): string => {
-  if (v == null) return ''
-  if (typeof v === 'string') return v
-  return v.name ?? ''
-}
-
 const resetForm = () => {
   const p = product.value
   if (!p) return
-  const optionGroups: ProductOptionGroupForm[] = (p.options ?? []).map((g: ProductOptionGroup) => {
-    const raw: Array<ProductOptionValue | string> = g.values ?? g.optionValues ?? []
-    return {
-      name: g.name ?? '',
-      optionValues: raw.map(optionValueName).filter(s => s.length > 0)
-    }
-  })
-  const variants: ProductVariantForm[] = (p.variants ?? []).map((v: ProductVariant) => {
-    const ids: number[] = optionGroups.map((g, gi) => {
-      const variantVal = v.optionValues?.[gi]
-      const name = optionValueName(variantVal)
-      if (!name) return -1
-      const idx = g.optionValues.indexOf(name)
-      return idx >= 0 ? idx : 0
-    })
-    return {
-      sku: v.sku ?? '',
-      name: v.name ?? ids.map((i, gi) => optionGroups[gi]?.optionValues?.[i]).filter(Boolean).join(' / '),
-      additionalPrice: v.additionalPrice ?? 0,
-      stockQuantity: v.stock ?? v.stockQuantity ?? 0,
-      optionValueIds: ids
-    }
-  })
+  const options: ProductOptionForm[] = (p.options ?? []).map((g: ProductOption) => ({
+    id: g.id,
+    name: g.name ?? '',
+    values: (g.optionValues ?? []).map((v: ProductOptionValue): ProductOptionValueForm => ({
+      id: v.id,
+      name: v.value ?? '',
+      additionalPrice: Number(v.additionalPrice ?? 0),
+      stockQuantity: Number(v.stockQuantity ?? 0),
+      sortOrder: v.sortOrder
+    }))
+  }))
   Object.assign(form, {
     name: p.name ?? '',
     summary: p.summary ?? '',
@@ -151,19 +118,13 @@ const resetForm = () => {
     discountValue: p.discountValue ?? 0,
     status: p.status ?? 'ON_SALE',
     maxPurchaseQuantity: p.maxPurchaseQuantity ?? undefined,
+    stockQuantity: p.stockQuantity ?? 0,
     primaryImageAltText: p.primaryImage?.altText ?? '',
-    options: optionGroups,
-    variants
+    options
   } satisfies ProductFormState)
   imageFile.value = null
   imagePreview.value = p.primaryImage?.url ?? ''
-
-  // 옵션 없는 단일 variant 는 "기본 재고" 로 꺼내 편집한다.
-  if (optionGroups.length === 0 && variants.length === 1 && variants[0]) {
-    defaultStock.value = variants[0].stockQuantity
-  } else {
-    defaultStock.value = 0
-  }
+  removeImage.value = false
 }
 
 const load = async () => {
@@ -224,9 +185,16 @@ const onImageChange = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   imageFile.value = file
+  removeImage.value = false
   const reader = new FileReader()
   reader.onload = () => { imagePreview.value = reader.result as string }
   reader.readAsDataURL(file)
+}
+
+const clearImage = () => {
+  imageFile.value = null
+  imagePreview.value = ''
+  removeImage.value = true
 }
 
 const startEdit = () => { editing.value = true }
@@ -234,6 +202,21 @@ const cancelEdit = () => {
   if (isNew) return router.push('/products')
   editing.value = false
   resetForm()
+}
+
+const toNumberOrUndefined = (v: number | string | null | undefined): number | undefined =>
+  v != null && v !== '' ? Number(v) : undefined
+
+interface OptionValuePayload {
+  name: string
+  additionalPrice: number
+  stockQuantity: number
+  sortOrder?: number
+}
+
+interface OptionPayload {
+  name: string
+  values: OptionValuePayload[]
 }
 
 interface ProductSavePayload {
@@ -249,21 +232,29 @@ interface ProductSavePayload {
   discountValue: number
   status: ProductFormState['status']
   maxPurchaseQuantity?: number
+  stockQuantity?: number
   primaryImageAltText?: string
-  options?: ProductOptionGroupForm[]
-  variants?: Array<{
-    sku: string
-    name: string
-    additionalPrice: number
-    stockQuantity: number
-    optionValueIds: number[]
-  }>
+  removeImage?: boolean
+  options?: OptionPayload[]
 }
 
-const toNumberOrUndefined = (v: number | string | null | undefined): number | undefined =>
-  v != null && v !== '' ? Number(v) : undefined
-
 const buildFormData = () => {
+  // 빈 그룹/값은 제거
+  const cleanedOptions: OptionPayload[] = form.options
+    .filter(g => g.name.trim().length > 0)
+    .map(g => ({
+      name: g.name.trim(),
+      values: g.values
+        .filter(v => String(v.name).trim().length > 0)
+        .map((v, idx) => ({
+          name: String(v.name).trim(),
+          additionalPrice: Math.max(0, Number(v.additionalPrice) || 0),
+          stockQuantity: Math.max(0, Number(v.stockQuantity) || 0),
+          sortOrder: v.sortOrder ?? idx
+        }))
+    }))
+    .filter(g => g.values.length > 0)
+
   const data: ProductSavePayload = {
     name: form.name,
     summary: form.summary || undefined,
@@ -277,34 +268,13 @@ const buildFormData = () => {
     discountValue: Number(form.discountValue) || 0,
     status: form.status,
     maxPurchaseQuantity: toNumberOrUndefined(form.maxPurchaseQuantity),
-    primaryImageAltText: form.primaryImageAltText || undefined,
-    options: form.options.length
-      ? form.options
-          .filter(g => g.name.trim().length > 0)
-          .map(g => ({
-            name: g.name,
-            optionValues: g.optionValues.filter(v => v.trim().length > 0)
-          }))
+    // 옵션 없으면 Product top-level 재고 전송, 옵션 있으면 생략 (옵션값에 분산됨)
+    stockQuantity: cleanedOptions.length === 0
+      ? Math.max(0, Number(form.stockQuantity) || 0)
       : undefined,
-    // 옵션 있음 → 변형 테이블 그대로 전송
-    // 옵션 없음 → "기본" 이름의 단일 variant 1개 자동 조립 (defaultStock 사용)
-    variants: form.options.length > 0
-      ? (form.variants.length
-        ? form.variants.map(v => ({
-            sku: v.sku,
-            name: v.name,
-            additionalPrice: Number(v.additionalPrice) || 0,
-            stockQuantity: Number(v.stockQuantity) || 0,
-            optionValueIds: v.optionValueIds
-          }))
-        : undefined)
-      : [{
-          sku: baseSku.value || 'SKU',
-          name: '기본',
-          additionalPrice: 0,
-          stockQuantity: Math.max(0, Number(defaultStock.value) || 0),
-          optionValueIds: []
-        }]
+    primaryImageAltText: form.primaryImageAltText || undefined,
+    removeImage: !isNew && removeImage.value ? true : undefined,
+    options: cleanedOptions.length ? cleanedOptions : undefined
   }
   const fd = new FormData()
   fd.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
@@ -317,12 +287,19 @@ const submit = async () => {
   if (!form.regularPrice) return toast.error('정가는 필수입니다.')
   if (!form.salePrice) return toast.error('판매가는 필수입니다.')
 
+  // 옵션 유효성: 그룹명/옵션값명 공백 검사
+  for (const g of form.options) {
+    if (!g.name.trim()) return toast.error('옵션 그룹명이 비어있습니다.')
+    for (const v of g.values) {
+      if (!String(v.name).trim()) return toast.error(`"${g.name}" 그룹에 이름 없는 옵션값이 있습니다.`)
+    }
+  }
+
   // 백엔드 autoSoldOutIfNoStock 훅 회피 (수정 시에만):
-  // updateProduct 는 저장 후 재고합=0 이면 status 를 SOLD_OUT 으로 강제 복귀시킨다.
-  // (createProduct 에는 훅이 없으므로 신규 등록은 자유롭게 허용)
-  if (!isNew && form.status === 'ON_SALE' && totalVariantStock.value === 0) {
+  // 저장 후 재고합=0 이면 서버가 status 를 SOLD_OUT 으로 강제 복귀.
+  if (!isNew && form.status === 'ON_SALE' && totalStock.value === 0) {
     if (form.options.length > 0) {
-      toast.error('모든 변형의 재고가 0 입니다. 판매중으로 저장하려면 최소 1개 변형의 재고를 입력하세요.')
+      toast.error('모든 옵션값의 재고가 0 입니다. 판매중으로 저장하려면 최소 1개 옵션값의 재고를 입력하세요.')
     } else {
       toast.error('재고가 0 입니다. 판매중으로 저장하려면 기본 정보의 재고를 입력하거나, 상태를 품절·단종으로 선택하세요.')
     }
@@ -377,7 +354,7 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
   <div class="p-8 max-w-5xl">
     <DetailHeader
       :title="isNew ? '새 상품 등록' : (product?.name ?? (loading ? '…' : '상품'))"
-      :subtitle="isNew ? '기본 정보 등록 후 상세에서 옵션/변형 추가' : (product ? `상품 ID · ${product.id}` : null)"
+      :subtitle="isNew ? '기본 정보만 입력해도 등록 가능. 옵션은 선택사항.' : (product ? `상품 ID · ${product.id}` : null)"
       back-to="/products"
     >
       <template #actions>
@@ -395,7 +372,7 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
 
     <div v-if="loading" class="text-center text-muted-foreground py-20">불러오는 중…</div>
 
-    <!-- 폼 -->
+    <!-- 편집 모드 -->
     <div v-else-if="editing" class="grid gap-6 md:grid-cols-[280px_1fr]">
       <!-- 대표 이미지 -->
       <Card class="self-start">
@@ -417,6 +394,16 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
             class="text-xs w-full"
             @change="onImageChange"
           />
+          <Button
+            v-if="!isNew && imagePreview && !imageFile"
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="mt-2 w-full h-8 text-xs text-destructive"
+            @click="clearImage"
+          >
+            <Icon name="lucide:trash-2" size="12" class="mr-1" /> 이미지 제거
+          </Button>
         </CardContent>
       </Card>
 
@@ -438,11 +425,11 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
             <div>
               <div class="flex items-center justify-between mb-1.5">
                 <Label>재고</Label>
-                <span v-if="form.options.length > 0" class="text-xs text-muted-foreground">옵션별 합계</span>
+                <span v-if="form.options.length > 0" class="text-xs text-muted-foreground">옵션값별 합계</span>
               </div>
               <Input
                 v-if="form.options.length === 0"
-                v-model="defaultStock"
+                v-model="form.stockQuantity"
                 type="number"
                 step="1"
                 min="0"
@@ -452,8 +439,8 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
                 v-else
                 class="px-3 py-2 text-sm rounded-md border bg-muted/40 text-muted-foreground flex items-center justify-between"
               >
-                <span>현재 {{ totalVariantStock.toLocaleString() }}개</span>
-                <span class="text-xs">아래 옵션 · 재고 섹션에서 변형별로 관리</span>
+                <span>현재 {{ totalStock.toLocaleString() }}개</span>
+                <span class="text-xs">아래 옵션 · 재고 섹션에서 옵션값별로 관리</span>
               </div>
             </div>
             <div>
@@ -503,11 +490,11 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
                   <SelectItem value="DISCONTINUED">단종</SelectItem>
                 </SelectContent>
               </Select>
-              <p v-if="!isNew && form.status === 'ON_SALE' && totalVariantStock === 0" class="mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 leading-relaxed">
+              <p v-if="!isNew && form.status === 'ON_SALE' && totalStock === 0" class="mt-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 leading-relaxed">
                 <Icon name="lucide:alert-triangle" size="12" class="inline -mt-0.5 mr-0.5" />
                 재고가 0 입니다. 저장 시 서버가 자동으로 품절로 되돌립니다.
                 <template v-if="form.options.length > 0">
-                  <strong class="font-medium">아래 변형 테이블에서 재고를 먼저 입력</strong> 하세요.
+                  <strong class="font-medium">아래 옵션 · 재고 섹션에서 재고를 먼저 입력</strong> 하세요.
                 </template>
                 <template v-else>
                   <strong class="font-medium">기본 정보 섹션의 재고를 입력</strong> 하세요.
@@ -572,16 +559,12 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           <CardHeader class="pb-3">
             <CardTitle class="text-sm font-semibold">옵션 · 재고</CardTitle>
             <CardDescription class="text-xs">
-              맛·중량 같은 선택지가 있으면 아래에 옵션 그룹을 추가하세요. 조합별 SKU 가 자동 생성되고 재고·추가 가격은 조합별로 관리됩니다.
+              맛·중량 같은 선택지가 있으면 옵션 그룹을 추가하세요. 각 옵션값마다 추가 가격과 재고를 관리합니다.
               옵션이 필요 없으면 비워두고 <strong>기본 정보 섹션의 재고</strong> 만 입력하세요.
             </CardDescription>
           </CardHeader>
           <CardContent class="pt-0">
-            <ProductOptionsEditor
-              v-model:options="form.options"
-              v-model:variants="form.variants"
-              :base-sku="baseSku"
-            />
+            <ProductOptionsEditor v-model:options="form.options" />
           </CardContent>
         </Card>
 
@@ -621,7 +604,7 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
       </div>
     </div>
 
-    <!-- 조회 -->
+    <!-- 조회 모드 -->
     <div v-else-if="product" class="space-y-6">
       <div class="grid gap-6 md:grid-cols-[280px_1fr]">
         <div>
@@ -644,7 +627,11 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           <DetailField label="상태" :value="statusLabel" />
           <DetailField label="정가" :value="formatCurrency(product.regularPrice)" />
           <DetailField label="판매가" :value="formatCurrency(product.salePrice)" />
-          <DetailField v-if="isSingleDefaultVariant" label="재고" :value="`${formatNumber(product.variants?.[0]?.stock ?? product.variants?.[0]?.stockQuantity)}개`" />
+          <DetailField
+            v-if="(product.options?.length ?? 0) === 0"
+            label="재고"
+            :value="`${formatNumber(product.stockQuantity ?? 0)}개`"
+          />
         </DetailSection>
       </div>
 
@@ -665,31 +652,45 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
         </div>
       </DetailSection>
 
-      <DetailSection v-if="product.variants?.length && !isSingleDefaultVariant" title="옵션 · 재고" :description="`${product.variants.length}개 변형`">
-        <div class="col-span-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>SKU</TableHead>
-                <TableHead>옵션</TableHead>
-                <TableHead class="text-right">판매가</TableHead>
-                <TableHead class="text-right">재고</TableHead>
-                <TableHead>상태</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow v-for="v in product.variants" :key="v.id">
-                <TableCell class="font-mono text-xs">{{ v.sku }}</TableCell>
-                <TableCell>{{ v.optionValues?.map(optionValueName).filter(Boolean).join(' / ') || '-' }}</TableCell>
-                <TableCell class="text-right">{{ formatCurrency(v.salePrice ?? v.price) }}</TableCell>
-                <TableCell class="text-right">{{ formatNumber(v.stock) }}</TableCell>
-                <TableCell><StatusBadge :status="v.stockStatus" /></TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+      <!-- 옵션 · 재고 (그룹 단위로 테이블) -->
+      <DetailSection
+        v-if="product.options?.length"
+        title="옵션 · 재고"
+        :description="`${product.options.length}개 그룹 · ${product.options.reduce((n, g) => n + g.optionValues.length, 0)}개 옵션값`"
+      >
+        <div class="col-span-2 space-y-4">
+          <div
+            v-for="group in product.options"
+            :key="group.id ?? group.name"
+            class="border rounded-md overflow-hidden"
+          >
+            <div class="px-3 py-2 bg-muted/30 border-b text-sm font-medium">{{ group.name }}</div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>옵션값</TableHead>
+                  <TableHead class="text-right w-32">추가 가격</TableHead>
+                  <TableHead class="text-right w-24">재고</TableHead>
+                  <TableHead class="w-28">상태</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow v-for="v in group.optionValues" :key="v.id ?? v.value">
+                  <TableCell>{{ v.value }}</TableCell>
+                  <TableCell class="text-right">
+                    <span v-if="v.additionalPrice && v.additionalPrice > 0" class="text-xs">+{{ formatCurrency(v.additionalPrice) }}</span>
+                    <span v-else class="text-muted-foreground text-xs">-</span>
+                  </TableCell>
+                  <TableCell class="text-right">{{ formatNumber(v.stockQuantity) }}</TableCell>
+                  <TableCell><StatusBadge :status="v.stockStatus" /></TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </DetailSection>
 
+      <!-- 상세 설명 -->
       <DetailSection v-if="product.description" title="상세 설명">
         <div class="col-span-2 rte-content" v-html="product.description" />
       </DetailSection>
@@ -708,14 +709,6 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           <div>
             <p class="mb-0.5 text-xs text-muted-foreground">최대 구매 수량</p>
             <p class="font-medium">{{ product.maxPurchaseQuantity ?? '제한없음' }}</p>
-          </div>
-          <div v-if="product.viewCount !== undefined">
-            <p class="mb-0.5 text-xs text-muted-foreground">조회수</p>
-            <p class="font-medium">{{ formatNumber(product.viewCount) }}</p>
-          </div>
-          <div>
-            <p class="mb-0.5 text-xs text-muted-foreground">등록일</p>
-            <p class="font-medium">{{ formatDate(product.createdAt) }}</p>
           </div>
         </div>
       </details>

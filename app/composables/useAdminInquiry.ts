@@ -5,7 +5,8 @@ export const useAdminInquiry = () => {
   const api = useApi()
 
   return {
-    types: () => api.get<Array<{ code: string, description: string } | string>>('/admin/inquiries/types'),
+    /** BE: `[{ code, name }]` (List<Map<String, String>>). 백엔드는 `description` 이 아닌 `name` 키 사용. */
+    types: () => api.get<Array<{ code: string, name: string }>>('/admin/inquiries/types'),
     list: (params: {
       status?: string
       inquiryType?: string

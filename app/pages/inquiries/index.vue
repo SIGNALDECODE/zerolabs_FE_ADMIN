@@ -12,7 +12,8 @@ const confirm = useConfirm()
 
 const ALL = 'ALL'
 
-type InquiryTypeOption = { code: string, description: string } | string
+/** BE 응답: `[{ code, name }]`. 옛날 응답 호환을 위해 string 도 허용. */
+type InquiryTypeOption = { code: string, name: string } | string
 
 const inquiries = ref<InquiryListItem[]>([])
 const total = ref(0)
@@ -29,7 +30,7 @@ const filters = reactive({
 })
 
 const typeCode = (t: InquiryTypeOption): string => typeof t === 'string' ? t : t.code
-const typeLabel = (t: InquiryTypeOption): string => typeof t === 'string' ? t : t.description
+const typeLabel = (t: InquiryTypeOption): string => typeof t === 'string' ? t : t.name
 
 const columns = [
   { key: 'select', label: '', width: '40px' },

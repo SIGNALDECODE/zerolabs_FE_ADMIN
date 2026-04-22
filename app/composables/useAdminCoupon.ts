@@ -38,7 +38,8 @@ export const useAdminCoupon = () => {
     updateStatus: (id: number, body: { status: CouponStatus }) =>
       api.patch<void>(`/admin/coupons/${id}/status`, body),
     toggleVisibility: (id: number) => api.patch<void>(`/admin/coupons/${id}/visibility`),
-    recall: (id: number) => api.post<void>(`/admin/coupons/${id}/recall`),
+    /** BE `CouponRecallResponse` — `@JsonProperty("recalled_count")` 로 snake 직렬화 */
+    recall: (id: number) => api.post<{ recalled_count: number }>(`/admin/coupons/${id}/recall`),
     remove: (id: number) => api.del<void>(`/admin/coupons/${id}`)
   }
 }

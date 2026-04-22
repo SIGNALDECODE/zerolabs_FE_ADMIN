@@ -19,15 +19,24 @@ export interface ClaimListItem {
   createdAt?: string
 }
 
+/**
+ * 백엔드 `OrderClaimResponse.ClaimItemInfo`
+ * - 옵션값 단위 모델 전환 후 variant 관련 필드는 모두 제거됨
+ * - 옵션 정보는 `selectedOptions` (주문 시점 스냅샷) 만 내려옴
+ */
+export interface ClaimItemSelectedOption {
+  optionName?: string
+  valueName?: string
+  additionalPrice?: number
+  [key: string]: unknown
+}
+
 export interface OrderClaimItem {
   orderItemId: number
   productName: string
-  variantName?: string | null
+  selectedOptions?: ClaimItemSelectedOption[] | null
   quantity: number
   orderItemStatus?: string
-  exchangeVariantId?: number
-  exchangeProductName?: string | null
-  exchangeVariantName?: string | null
 }
 
 export interface OrderClaim {

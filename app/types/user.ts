@@ -22,6 +22,22 @@ export interface UserGradeShort {
   name: string
 }
 
+/**
+ * BE `GradeResponse` — 등급 풀 정보 (`GET /admin/users/grades`).
+ * 모든 필드 snake_case 직렬화.
+ */
+export interface UserGrade {
+  grade_id: number
+  name: string
+  level?: number
+  min_amount?: number
+  icon_url?: string | null
+  is_default?: boolean
+  member_count?: number
+  coupon_ids?: number[]
+  has_pending_changes?: boolean
+}
+
 /** BE `AddressResponse` — 필드명 자체가 address1/address2 (recipient_name 등 snake) */
 export interface UserAddress {
   id: number

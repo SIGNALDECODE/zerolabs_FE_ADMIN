@@ -2,11 +2,10 @@ import type { PageResponse } from '~/types/api'
 import type { ClaimListItem, OrderClaim } from '~/types/claim'
 import type { ClaimType, ClaimReasonType, ClaimStatus } from '~/types/common'
 
-/** BE `ClaimItemRequest` */
+/** BE `ClaimItemRequest` — orderItemId + quantity 만. variant/옵션 변경은 백엔드 미지원. */
 export interface ClaimItemBody {
   orderItemId: number
   quantity: number
-  exchangeVariantId?: number
 }
 
 /** BE `ClaimCreateRequest` */

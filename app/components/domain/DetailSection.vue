@@ -8,10 +8,13 @@ defineProps<{
 <template>
   <Card>
     <CardHeader class="pb-3">
-      <CardTitle class="text-base">{{ title }}</CardTitle>
-      <CardDescription v-if="description">{{ description }}</CardDescription>
+      <div class="flex items-center gap-2">
+        <span class="h-4 w-0.5 bg-primary/70 rounded-full" aria-hidden="true" />
+        <CardTitle class="text-sm font-semibold">{{ title }}</CardTitle>
+        <span v-if="description" class="text-xs text-muted-foreground">· {{ description }}</span>
+      </div>
     </CardHeader>
-    <CardContent>
+    <CardContent class="pt-0">
       <dl class="grid gap-x-6 grid-cols-1 md:grid-cols-2">
         <slot />
       </dl>

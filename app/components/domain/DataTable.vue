@@ -43,11 +43,11 @@ const cellClass = (col: Column) => [col.class, alignClass(col.align)].filter(Boo
     <CardContent class="p-0">
       <Table>
         <TableHeader>
-          <TableRow>
+          <TableRow class="bg-muted/40 hover:bg-muted/40 border-b">
             <TableHead
               v-for="col in columns"
               :key="col.key"
-              :class="cellClass(col)"
+              :class="`${cellClass(col)} text-xs font-semibold text-muted-foreground uppercase tracking-wider`"
               :style="col.width ? { width: col.width } : undefined"
             >
               {{ col.label }}
@@ -57,18 +57,20 @@ const cellClass = (col: Column) => [col.class, alignClass(col.align)].filter(Boo
         <TableBody>
           <TableRow v-if="loading">
             <TableCell :colspan="columns.length" class="text-center text-muted-foreground py-10">
+              <Icon name="lucide:loader-2" size="16" class="inline animate-spin mr-1.5 -mt-0.5" />
               불러오는 중…
             </TableCell>
           </TableRow>
           <TableRow v-else-if="!rows.length">
-            <TableCell :colspan="columns.length" class="text-center text-muted-foreground py-10">
+            <TableCell :colspan="columns.length" class="text-center text-muted-foreground py-12">
+              <Icon name="lucide:inbox" size="24" class="block mx-auto mb-2 opacity-50" />
               {{ emptyMessage }}
             </TableCell>
           </TableRow>
           <TableRow
             v-for="(row, i) in rows"
             :key="getKey(row, i)"
-            :class="clickable ? 'cursor-pointer' : ''"
+            :class="clickable ? 'cursor-pointer transition-colors hover:bg-muted/30' : ''"
             @click="clickable && emit('rowClick', row)"
           >
             <TableCell

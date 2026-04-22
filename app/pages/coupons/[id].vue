@@ -3,14 +3,21 @@ import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
 import type { CouponStatus } from '~/types/common'
 import type { CouponDetail, CouponFormState } from '~/types/marketing'
 import type { CouponCreateBody } from '~/composables/useAdminCoupon'
+import type { UserGrade } from '~/types/user'
+import type { CategoryNode } from '~/types/content'
 
 definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const router = useRouter()
 const couponApi = useAdminCoupon()
+const gradeApi = useAdminGrade()
+const categoryApi = useAdminCategory()
 const toast = useToast()
 const confirm = useConfirm()
+
+const grades = ref<UserGrade[]>([])
+const categories = ref<CategoryNode[]>([])
 
 const isNew = route.params.id === 'new'
 const id = isNew ? 0 : Number(route.params.id)
@@ -44,8 +51,35 @@ const form = reactive<CouponFormState>({
   validFrom: '',
   validTo: '',
   allowPromotionOverlap: false,
-  allowDuplicateUse: false
+  allowDuplicateUse: false,
+  gradeIds: [],
+  categoryIds: []
 })
+
+/** 카테고리 트리를 깊이별 들여쓰기 가능하도록 평탄화. (상품 폼과 같은 패턴) */
+const flatCategories = computed(() => {
+  const out: { id: number, name: string, depth: number }[] = []
+  const walk = (list: CategoryNode[] | undefined, depth: number) => {
+    for (const c of list ?? []) {
+      out.push({ id: c.id, name: c.name, depth })
+      if (c.children?.length) walk(c.children, depth + 1)
+    }
+  }
+  walk(categories.value, 0)
+  return out
+})
+
+const toggleGrade = (gradeId: number) => {
+  const i = form.gradeIds.indexOf(gradeId)
+  if (i >= 0) form.gradeIds.splice(i, 1)
+  else form.gradeIds.push(gradeId)
+}
+
+const toggleCategory = (catId: number) => {
+  const i = form.categoryIds.indexOf(catId)
+  if (i >= 0) form.categoryIds.splice(i, 1)
+  else form.categoryIds.push(catId)
+}
 
 const resetForm = () => {
   const c = coupon.value
@@ -65,7 +99,9 @@ const resetForm = () => {
     validFrom: c.validFrom?.slice(0, 16) ?? '',
     validTo: c.validTo?.slice(0, 16) ?? '',
     allowPromotionOverlap: c.allowPromotionOverlap ?? false,
-    allowDuplicateUse: c.allowDuplicateUse ?? false
+    allowDuplicateUse: c.allowDuplicateUse ?? false,
+    gradeIds: c.grades?.map(g => g.id) ?? [],
+    categoryIds: c.categories?.map(cat => cat.id) ?? []
   })
 }
 
@@ -76,6 +112,14 @@ const load = async () => {
     coupon.value = await couponApi.detail(id)
     resetForm()
   } finally { loading.value = false }
+}
+
+const loadGrades = async () => {
+  try { grades.value = (await gradeApi.list())?.grades ?? [] } catch { grades.value = [] }
+}
+
+const loadCategories = async () => {
+  try { categories.value = await categoryApi.list() } catch { categories.value = [] }
 }
 
 const startEdit = () => { editing.value = true }
@@ -102,7 +146,10 @@ const buildBody = (): CouponCreateBody => {
     totalQuantity: toNumberOrUndefined(form.totalQuantity),
     validityType: form.validityType,
     allowPromotionOverlap: form.allowPromotionOverlap,
-    allowDuplicateUse: form.allowDuplicateUse
+    allowDuplicateUse: form.allowDuplicateUse,
+    // 비어있으면 BE 가 "전체"로 해석. 명시적으로 빈 배열 전송해 의도 표현.
+    gradeIds: form.gradeIds,
+    categoryIds: form.couponType === 'PRODUCT_DISCOUNT' ? form.categoryIds : []
   }
   if (form.validityType === 'DAYS_FROM_DOWNLOAD') {
     body.validityDays = Number(form.validityDays)
@@ -196,7 +243,7 @@ const validityText = computed(() => {
   return `${formatDate(c.validFrom)} ~ ${formatDate(c.validTo)}`
 })
 
-onMounted(load)
+onMounted(() => { load(); loadGrades(); loadCategories() })
 useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.value?.name ?? '쿠폰'} | ZeroLabs Admin` })
 </script>
 
@@ -322,6 +369,58 @@ useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.
             <input v-model="form.allowDuplicateUse" type="checkbox" class="h-4 w-4" />
             다른 쿠폰과 중복 사용
           </label>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <Label>적용 등급</Label>
+            <span class="text-xs text-muted-foreground">선택 안 하면 전체 등급</span>
+          </div>
+          <div class="max-h-40 overflow-y-auto rounded-md border">
+            <div v-if="!grades.length" class="p-4 text-center text-sm text-muted-foreground">
+              등급 정보 없음
+            </div>
+            <label
+              v-for="g in grades"
+              :key="g.grade_id"
+              class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                :checked="form.gradeIds.includes(g.grade_id)"
+                class="h-4 w-4"
+                @change="toggleGrade(g.grade_id)"
+              />
+              {{ g.name }}
+              <span v-if="g.level != null" class="text-xs text-muted-foreground">Lv.{{ g.level }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div v-if="form.couponType === 'PRODUCT_DISCOUNT'">
+          <div class="flex items-center justify-between mb-1.5">
+            <Label>적용 카테고리</Label>
+            <span class="text-xs text-muted-foreground">선택 안 하면 전체 카테고리</span>
+          </div>
+          <div class="max-h-40 overflow-y-auto rounded-md border">
+            <div v-if="!flatCategories.length" class="p-4 text-center text-sm text-muted-foreground">
+              카테고리 없음
+            </div>
+            <label
+              v-for="c in flatCategories"
+              :key="c.id"
+              class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
+              :style="{ paddingLeft: `${c.depth * 16 + 12}px` }"
+            >
+              <input
+                type="checkbox"
+                :checked="form.categoryIds.includes(c.id)"
+                class="h-4 w-4"
+                @change="toggleCategory(c.id)"
+              />
+              {{ c.name }}
+            </label>
+          </div>
         </div>
 
         <div>

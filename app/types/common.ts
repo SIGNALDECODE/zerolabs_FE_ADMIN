@@ -3,13 +3,18 @@
  */
 
 export type OrderStatus =
-  | 'PENDING' | 'PAID' | 'PREPARING' | 'SHIPPING' | 'DELIVERED'
-  | 'COMPLETED' | 'CONFIRMED' | 'CANCELLED' | 'REFUNDED'
+  | 'PENDING' | 'PAID' | 'PREPARING' | 'SHIPPING'
+  | 'PARTIAL_DELIVERED' | 'DELIVERED' | 'CONFIRMED'
+  | 'CANCELLED' | 'REFUNDED'
+  | 'RETURN_REQUESTED' | 'RETURN_IN_PROGRESS' | 'RETURN_COMPLETED'
+  | 'PARTIAL_RETURN_IN_PROGRESS' | 'PARTIAL_RETURN_COMPLETED'
+  | 'EXCHANGE_REQUESTED' | 'EXCHANGE_IN_PROGRESS' | 'EXCHANGE_COMPLETED'
+  | 'PARTIAL_EXCHANGE_IN_PROGRESS' | 'PARTIAL_EXCHANGE_COMPLETED'
 
 export type ProductStatus = 'ON_SALE' | 'DISCONTINUED' | 'SOLD_OUT'
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'WITHDRAWN'
-export type UserType = 'ADMIN' | 'STAFF' | 'USER'
+export type UserType = 'ADMIN' | 'STAFF' | 'CUSTOMER'
 
 export type CouponStatus = 'REGISTERED' | 'ACTIVE' | 'STOPPED' | 'ENDED' | 'RECALLED'
 export type CouponType = 'PRODUCT_DISCOUNT' | 'FREE_SHIPPING'
@@ -37,4 +42,4 @@ export type PopupStatus = 'ACTIVE' | 'INACTIVE'
 export type PopupLinkTarget = '_self' | '_blank'
 export type PopupCloseOption = 'CLOSE' | 'TODAY' | 'WEEK'
 
-export type Gender = 'MALE' | 'FEMALE' | 'OTHER'
+export type Gender = 'MALE' | 'FEMALE'

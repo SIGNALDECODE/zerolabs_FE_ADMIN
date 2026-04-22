@@ -10,6 +10,12 @@ export interface OrderStatusChangeBody {
   trackingNumber?: string
 }
 
+/** BE `OrderStatusResponse` — 상태 코드 + 한글 라벨 */
+export interface OrderStatusOption {
+  code: OrderStatus
+  name: string
+}
+
 export const useAdminOrder = () => {
   const api = useApi()
 
@@ -17,7 +23,7 @@ export const useAdminOrder = () => {
     list: (params: { status?: string, searchType?: string, keyword?: string, page?: number, size?: number } = {}) =>
       api.get<PageResponse<OrderListItem>>('/admin/orders', params),
     detail: (id: number) => api.get<OrderDetail>(`/admin/orders/${id}`),
-    statuses: () => api.get<string[]>('/admin/orders/statuses'),
+    statuses: () => api.get<OrderStatusOption[]>('/admin/orders/statuses'),
     /**
      * 주문 상태 일괄 변경 (SHIPPING 시 carrierId, trackingNumber 필수)
      */

@@ -62,6 +62,10 @@ export interface CouponFormState {
   validTo: string
   allowPromotionOverlap: boolean
   allowDuplicateUse: boolean
+  /** 비어있으면 전체 등급. */
+  gradeIds: number[]
+  /** 비어있으면 전체 카테고리. (couponType=PRODUCT_DISCOUNT 일 때만 의미 있음) */
+  categoryIds: number[]
 }
 
 export interface Banner {

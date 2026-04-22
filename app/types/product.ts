@@ -1,98 +1,99 @@
 import type { ProductStatus, DiscountType } from './common'
 
+/** 백엔드 `StockStatus` enum */
+export type StockStatus = 'IN_STOCK' | 'OUT_OF_STOCK' | 'BACKORDER'
+
+/**
+ * 백엔드 `AdminProductListResponse` (GET /admin/products)
+ * - 썸네일, 카테고리/태그 이름, 재고 합계 포함
+ * - `discountRate` 는 "-10%" 같이 부호 포함 문자열 (할인 없으면 null)
+ */
 export interface ProductListItem {
   id: number
-  name: string
   thumbnailUrl?: string | null
-  price?: {
-    regularPrice?: number
-    salePrice?: number
-    finalPrice?: number
-  } | number
-  stock?: number
+  name: string
+  optionCount: number
+  categoryNames?: string[]
+  regularPrice?: number
+  salePrice?: number
+  discountRate?: string | null
+  stockQuantity: number
+  tags?: string[]
   status: ProductStatus
-  createdAt?: string
 }
 
+/** 백엔드 `ProductImageResponse` */
 export interface ProductImage {
   id?: number
   url: string
   altText?: string | null
-  isPrimary?: boolean
-  sortOrder?: number
 }
 
 export interface ProductCategory { id: number, name: string }
-export interface ProductBrand { id: number, name: string, logoUrl?: string | null }
 export interface ProductTag { id: number, name: string }
 
-export interface ProductOptionValue { id?: number, name: string, sortOrder?: number }
-export interface ProductOptionGroup {
+/**
+ * 백엔드 `ProductOptionValueResponse`
+ * - `value` 가 옵션값 이름 (저장 요청의 `name` 에 대응)
+ * - 재고·추가가격은 옵션값 단위로 관리됨 (variant 제거 이후 모델)
+ */
+export interface ProductOptionValue {
   id?: number
-  name: string
-  values?: ProductOptionValue[]
-  optionValues?: string[]  // for request
+  value: string
+  displayValue?: string | null
+  additionalPrice: number
+  stockQuantity: number
+  stockStatus?: StockStatus | null
+  sortOrder?: number
 }
 
-export interface ProductVariant {
+/** 백엔드 `AdminProductOptionResponse` */
+export interface ProductOption {
   id?: number
-  sku: string
-  name?: string
-  additionalPrice?: number
-  stock?: number
-  stockQuantity?: number
-  stockStatus?: string
-  salePrice?: number
-  price?: number
-  optionValues?: Array<ProductOptionValue | string>
-  optionValueIds?: number[]
+  name: string
+  optionValues: ProductOptionValue[]
 }
 
 /**
- * 백엔드 ProductResponse 와 1:1 매핑.
- * 가격 필드는 DTO 상 top-level (price 객체로 래핑되어 있지 않음).
- * 이미지는 primaryImage 단일 객체 (multi-image 는 아직 미지원).
+ * 백엔드 `ProductResponse` (GET /admin/products/{id}).
+ * - 옵션이 없는 상품은 top-level `stockQuantity` 에 재고 저장
+ * - 옵션이 있는 상품은 각 `options[].optionValues[].stockQuantity` 합계
  */
 export interface ProductDetail {
   id: number
   name: string
   summary?: string | null
   description?: string | null
-  productType?: string
   status: ProductStatus
-  categories?: ProductCategory[]
-  tags?: ProductTag[]
-  brand?: ProductBrand | null
   costPrice?: number | null
   regularPrice?: number | null
   salePrice?: number | null
+  maxPurchaseQuantity?: number | null
+  stockQuantity?: number | null
+  stockStatus?: StockStatus | null
   discountType?: DiscountType | null
   discountValue?: number | null
-  maxPurchaseQuantity?: number | null
-  viewCount?: number
+  categories?: ProductCategory[]
+  tags?: ProductTag[]
   primaryImage?: ProductImage | null
-  options?: ProductOptionGroup[]
-  variants?: ProductVariant[]
-  saleStartedAt?: string | null
-  saleEndedAt?: string | null
-  createdAt?: string
+  options?: ProductOption[]
 }
 
-/**
- * 폼/요청 측 타입
- * - shape 는 app/components/domain/ProductOptionsEditor.vue 의 OptionGroup/Variant 와 일치해야 함.
- */
-export interface ProductOptionGroupForm {
-  name: string
-  optionValues: string[]
-}
+/* ======================= FE 폼 측 타입 ======================= */
 
-export interface ProductVariantForm {
-  sku: string
+/** 옵션값 폼 상태 — 사용자가 입력하는 과정 중에는 문자열도 허용. */
+export interface ProductOptionValueForm {
+  id?: number
   name: string
   additionalPrice: number | string
   stockQuantity: number | string
-  optionValueIds: number[]
+  sortOrder?: number
+}
+
+export interface ProductOptionForm {
+  id?: number
+  name: string
+  values: ProductOptionValueForm[]
 }
 
 export interface ProductFormState {
@@ -108,7 +109,8 @@ export interface ProductFormState {
   discountValue: number | string
   status: ProductStatus
   maxPurchaseQuantity: number | string | undefined
+  /** 옵션 없는 상품의 top-level 재고. 옵션 있으면 무시. */
+  stockQuantity: number | string
   primaryImageAltText: string
-  options: ProductOptionGroupForm[]
-  variants: ProductVariantForm[]
+  options: ProductOptionForm[]
 }
