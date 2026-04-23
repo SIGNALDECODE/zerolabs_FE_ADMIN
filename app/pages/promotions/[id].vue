@@ -21,6 +21,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const form = reactive<PromotionFormState>({
   isActive: true,
   name: '',
@@ -43,7 +46,14 @@ const resetForm = () => {
     startedAt: p.startedAt?.slice(0, 16) ?? '',
     endedAt: p.endedAt?.slice(0, 16) ?? ''
   } satisfies PromotionFormState)
+  captureSnapshot()
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const load = async () => {
   if (isNew) return
@@ -106,6 +116,7 @@ const submit = async () => {
     if (isNew) {
       const res = await promotionApi.create(buildBody())
       toast.success('프로모션을 등록했습니다.')
+      captureSnapshot()
       router.push(`/promotions/${res.id}`)
     } else {
       await promotionApi.update(id, buildBody())
@@ -125,15 +136,18 @@ const discountText = computed(() => {
 })
 
 onMounted(() => { load(); loadCategories() })
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 프로모션 | ZeroLabs Admin' : `${promotion.value?.name ?? '프로모션'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:percent"
       :title="isNew ? '새 프로모션 등록' : (promotion?.name ?? (loading ? '…' : '프로모션'))"
       :subtitle="isNew ? null : (promotion ? `프로모션 ID · ${promotion.id}` : null)"
       back-to="/promotions"
+      back-label="프로모션 목록으로"
     >
       <template #actions>
         <template v-if="!editing && promotion">

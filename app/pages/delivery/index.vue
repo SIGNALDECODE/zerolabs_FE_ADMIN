@@ -50,8 +50,9 @@ onMounted(loadCarriers)
 </script>
 
 <template>
-  <div class="p-8">
+  <div class="p-4 sm:p-8">
     <PageHeader
+      icon="lucide:truck"
       title="배송 관리"
       description="송장 추적 · 택배사 관리"
     />
@@ -76,9 +77,11 @@ onMounted(loadCarriers)
 
         <div v-if="searched === null">
           <Card>
-            <CardContent class="py-12 text-center text-muted-foreground text-sm">
-              <Icon name="lucide:truck" size="24" class="mx-auto mb-2 opacity-50" />
-              주문 ID 를 입력하고 추적하면 배송 이력이 표시됩니다.
+            <CardContent class="py-16 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <div class="grid place-items-center h-12 w-12 rounded-full bg-muted/60">
+                <Icon name="lucide:truck" size="22" class="opacity-60" />
+              </div>
+              <p class="text-sm">주문 ID 를 입력하고 추적하면 배송 이력이 표시됩니다.</p>
             </CardContent>
           </Card>
         </div>

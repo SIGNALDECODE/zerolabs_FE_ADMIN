@@ -24,7 +24,7 @@ const filters = reactive({
 })
 
 const columns = [
-  { key: 'representativeProductThumbnailUrl', label: '이미지', width: '56px' },
+  { key: 'representativeProductThumbnailUrl', label: '이미지', width: '72px' },
   { key: 'orderNumber', label: '주문번호' },
   { key: 'claimType', label: '유형' },
   { key: 'representativeProductName', label: '상품' },
@@ -74,8 +74,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="클레임 관리" :description="`총 ${total.toLocaleString()}건 · 취소/반품/교환`" />
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:refresh-cw" title="클레임 관리" :description="`총 ${total.toLocaleString()}건 · 취소/반품/교환`" />
 
     <FilterBar @search="search">
       <Select v-model="filters.claimType">

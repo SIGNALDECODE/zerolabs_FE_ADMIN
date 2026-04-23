@@ -36,6 +36,16 @@ const imageFile = ref<File | null>(null)
 const imagePreview = ref<string>('')
 const removeImage = ref(false)
 
+/** 마지막 저장(또는 로드) 시점의 폼 스냅샷. dirty 비교용. */
+const snapshot = ref<string>('')
+const captureSnapshot = () => {
+  snapshot.value = JSON.stringify({
+    form,
+    hasNewImage: !!imageFile.value,
+    removeImage: removeImage.value
+  })
+}
+
 const form = reactive<ProductFormState>({
   name: '',
   summary: '',
@@ -125,7 +135,18 @@ const resetForm = () => {
   imageFile.value = null
   imagePreview.value = p.primaryImage?.url ?? ''
   removeImage.value = false
+  captureSnapshot()
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify({
+    form,
+    hasNewImage: !!imageFile.value,
+    removeImage: removeImage.value
+  }),
+  () => editing.value
+)
 
 const load = async () => {
   if (isNew) return
@@ -318,6 +339,8 @@ const submit = async () => {
     if (isNew) {
       const res = await productApi.create(buildFormData())
       toast.success('상품을 등록했습니다.')
+      // dirty 플래그 해제 후 이동 (떠나기 경고 회피)
+      captureSnapshot()
       router.push(`/products/${res.id}`)
     } else {
       await productApi.update(id, buildFormData())
@@ -347,15 +370,19 @@ const remove = async () => {
 }
 
 onMounted(() => { load(); loadCategories(); loadTags() })
+// 신규 모드 — load() 가 호출되지 않으므로 초기 폼 상태를 기준 스냅샷으로 잡아둠
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product.value?.name ?? '상품'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-5xl">
+  <div class="p-4 sm:p-8 max-w-5xl">
     <DetailHeader
+      icon="lucide:package"
       :title="isNew ? '새 상품 등록' : (product?.name ?? (loading ? '…' : '상품'))"
       :subtitle="isNew ? '기본 정보만 입력해도 등록 가능. 옵션은 선택사항.' : (product ? `상품 ID · ${product.id}` : null)"
       back-to="/products"
+      back-label="상품 목록으로"
     >
       <template #actions>
         <template v-if="!editing && product">

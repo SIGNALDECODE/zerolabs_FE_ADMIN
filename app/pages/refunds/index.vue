@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
 import type { OrderDetail, OrderItem } from '~/types/order'
 import type { RefundRecord } from '~/types/claim'
@@ -104,8 +104,9 @@ const statusLabels: Record<string, string> = {
 </script>
 
 <template>
-  <div class="p-8">
+  <div class="p-4 sm:p-8">
     <PageHeader
+      icon="lucide:banknote"
       title="환불 관리"
       description="주문 단위 환불 이력 조회 및 단독 환불 처리. 클레임 연동 환불은 클레임 화면에서 수행하세요."
     />
@@ -191,9 +192,11 @@ const statusLabels: Record<string, string> = {
     </Card>
 
     <Card v-else>
-      <CardContent class="py-12 text-center text-muted-foreground text-sm">
-        <Icon name="lucide:search" size="24" class="mx-auto mb-2 opacity-50" />
-        조회할 주문 ID를 입력하고 검색을 눌러주세요.
+      <CardContent class="py-16 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+        <div class="grid place-items-center h-12 w-12 rounded-full bg-muted/60">
+          <Icon name="lucide:search" size="22" class="opacity-60" />
+        </div>
+        <p class="text-sm">조회할 주문 ID를 입력하고 검색을 눌러주세요.</p>
       </CardContent>
     </Card>
 

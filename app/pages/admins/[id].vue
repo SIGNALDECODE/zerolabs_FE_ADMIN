@@ -36,6 +36,14 @@ const form = reactive<{
   role: 'STAFF'
 })
 
+// 신규 등록 폼만 dirty 추적 (기존 관리자 수정은 폼 없이 액션 버튼으로만 변경)
+const snapshot = ref<string>(JSON.stringify(form))
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => isNew
+)
+
 const load = async () => {
   if (isNew) return
   loading.value = true
@@ -58,6 +66,7 @@ const submit = async () => {
       role: form.role
     })
     toast.success('관리자를 등록했습니다.')
+    snapshot.value = JSON.stringify(form)
     router.push(`/admins/${res.id}`)
   } catch (e) {
     toast.error(e, '등록 실패')
@@ -96,11 +105,13 @@ useHead({ title: () => isNew ? '관리자 등록 | ZeroLabs Admin' : `${admin.va
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:shield"
       :title="isNew ? '관리자 등록' : (admin?.name ?? (loading ? '…' : '관리자'))"
       :subtitle="isNew ? '새 관리자 계정 생성' : admin?.email"
       back-to="/admins"
+      back-label="관리자 목록으로"
     >
       <template #actions>
         <template v-if="!isNew && admin">

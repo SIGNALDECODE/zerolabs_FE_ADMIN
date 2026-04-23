@@ -128,11 +128,13 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-5xl">
+  <div class="p-4 sm:p-8 max-w-5xl">
     <DetailHeader
+      icon="lucide:users"
       :title="user?.name ?? (loading ? '…' : '회원')"
       :subtitle="user ? `회원 ID · ${user.user_id}` : null"
       back-to="/users"
+      back-label="회원 목록으로"
     >
       <template #actions>
         <StatusBadge v-if="user" :status="user.status" />
@@ -206,10 +208,13 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow
-                v-for="o in orders"
+              <tr
+                v-for="(o, i) in orders"
                 :key="o.order_id"
-                class="cursor-pointer"
+                :class="[
+                  'border-b transition-colors cursor-pointer hover:bg-accent/50',
+                  i % 2 === 1 ? 'bg-muted/20' : ''
+                ]"
                 @click="router.push(`/orders/${o.order_id}`)"
               >
                 <TableCell class="font-mono text-xs">{{ o.order_number }}</TableCell>
@@ -217,7 +222,7 @@ useHead({ title: () => `${user.value?.name ?? '회원'} | ZeroLabs Admin` })
                 <TableCell class="text-muted-foreground max-w-xs truncate">{{ o.product_summary }}</TableCell>
                 <TableCell class="text-right">{{ formatCurrency(o.grand_total) }}</TableCell>
                 <TableCell class="text-muted-foreground">{{ formatDate(o.ordered_at) }}</TableCell>
-              </TableRow>
+              </tr>
             </TableBody>
           </Table>
           <p v-else class="text-center text-muted-foreground py-6 text-sm">주문 내역이 없습니다.</p>

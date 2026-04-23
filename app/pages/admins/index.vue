@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatDate } from '~/utils/format'
 import type { AdminListItem } from '~/types/user'
 
@@ -66,8 +66,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="관리자 계정" :description="`총 ${total.toLocaleString()}명`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:shield" title="관리자 계정" :description="`총 ${total.toLocaleString()}명`">
       <template #actions>
         <Button @click="router.push('/admins/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 관리자 등록

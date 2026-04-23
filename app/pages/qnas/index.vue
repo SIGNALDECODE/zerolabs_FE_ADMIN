@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatDate } from '~/utils/format'
 import type { Qna } from '~/types/content'
 
@@ -69,8 +69,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="Q&A 관리" :description="`총 ${total.toLocaleString()}건 · 상품 문의`" />
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:help-circle" title="Q&A 관리" :description="`총 ${total.toLocaleString()}건 · 상품 문의`" />
 
     <FilterBar @search="search">
       <Select v-model="filters.status">

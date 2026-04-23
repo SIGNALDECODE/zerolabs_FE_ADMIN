@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatCurrency, formatDate, formatNumber, formatPhone } from '~/utils/format'
 import type { PageResponse } from '~/types/api'
 import type { UserListItem } from '~/types/user'
@@ -65,8 +65,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="회원 관리" :description="`총 ${totalElements.toLocaleString()}명`" />
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:users" title="회원 관리" :description="`총 ${totalElements.toLocaleString()}명`" />
 
     <FilterBar @search="handleSearch">
       <Input v-model="filters.keyword" placeholder="이름 / 이메일 / 전화번호" class="max-w-xs" @keyup.enter="handleSearch" />

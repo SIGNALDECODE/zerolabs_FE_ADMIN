@@ -18,6 +18,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const form = reactive<BannerFormState>({
   title: '',
   position: 'HERO',
@@ -46,7 +49,14 @@ const resetForm = () => {
     endedAt: b.endedAt?.slice(0, 16) ?? '',
     noEndDate: b.noEndDate ?? false
   })
+  captureSnapshot()
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const load = async () => {
   if (isNew) return
@@ -85,6 +95,7 @@ const submit = async () => {
     if (isNew) {
       const res = await bannerApi.create(buildBody())
       toast.success('배너를 등록했습니다.')
+      captureSnapshot()
       router.push(`/banners/${res.id}`)
     } else {
       await bannerApi.update(id, buildBody())
@@ -114,15 +125,18 @@ const remove = async () => {
 }
 
 onMounted(load)
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.value?.title ?? '배너'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:image"
       :title="isNew ? '새 배너 등록' : (banner?.title ?? (loading ? '…' : '배너'))"
       :subtitle="isNew ? null : (banner ? `배너 ID · ${banner.id}` : null)"
       back-to="/banners"
+      back-label="배너 목록으로"
     >
       <template #actions>
         <template v-if="!editing && banner">

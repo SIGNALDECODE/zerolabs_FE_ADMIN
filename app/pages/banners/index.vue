@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatDate } from '~/utils/format'
 import type { Banner } from '~/types/marketing'
 
@@ -69,8 +69,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="배너 관리" :description="`총 ${total.toLocaleString()}개`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:image" title="배너 관리" :description="`총 ${total.toLocaleString()}개`">
       <template #actions>
         <Button @click="router.push('/banners/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 배너 등록

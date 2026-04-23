@@ -78,8 +78,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="쿠폰 관리" :description="`총 ${total.toLocaleString()}개`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:ticket" title="쿠폰 관리" :description="`총 ${total.toLocaleString()}개`">
       <template #actions>
         <Button @click="router.push('/coupons/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 쿠폰 등록

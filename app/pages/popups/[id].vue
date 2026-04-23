@@ -18,6 +18,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const form = reactive<PopupFormState>({
   name: '',
   status: 'INACTIVE',
@@ -46,7 +49,14 @@ const resetForm = () => {
     startedAt: p.startedAt?.slice(0, 16) ?? '',
     endedAt: p.endedAt?.slice(0, 16) ?? ''
   })
+  captureSnapshot()
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const load = async () => {
   if (isNew) return
@@ -84,6 +94,7 @@ const submit = async () => {
     if (isNew) {
       const res = await popupApi.create(buildBody())
       toast.success('팝업을 등록했습니다.')
+      captureSnapshot()
       router.push(`/popups/${res.id}`)
     } else {
       await popupApi.update(id, buildBody())
@@ -113,15 +124,18 @@ const remove = async () => {
 }
 
 onMounted(load)
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 팝업 등록 | ZeroLabs Admin' : `${popup.value?.name ?? '팝업'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:square-stack"
       :title="isNew ? '새 팝업 등록' : (popup?.name ?? (loading ? '…' : '팝업'))"
       :subtitle="isNew ? null : (popup ? `팝업 ID · ${popup.id}` : null)"
       back-to="/popups"
+      back-label="팝업 목록으로"
     >
       <template #actions>
         <template v-if="!editing && popup">

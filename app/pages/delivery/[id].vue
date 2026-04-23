@@ -39,11 +39,13 @@ useHead({ title: () => `배송 #${shipmentId} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:truck"
       :title="`배송 #${shipmentId}`"
       :subtitle="tracking?.carrierName ? `${tracking.carrierName} · ${tracking.trackingNumber}` : null"
       back-to="/delivery"
+      back-label="배송 목록으로"
     >
       <template #actions>
         <StatusBadge v-if="tracking" :status="tracking.status" />

@@ -133,8 +133,8 @@ onMounted(() => { loadOrders(); loadCarriers() })
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="주문 관리" :description="`총 ${totalElements.toLocaleString()}건`" />
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:shopping-cart" title="주문 관리" :description="`총 ${totalElements.toLocaleString()}건`" />
 
     <FilterBar @search="handleSearch">
       <Select v-model="filters.status">

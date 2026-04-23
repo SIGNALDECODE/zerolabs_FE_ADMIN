@@ -104,8 +104,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="1:1 문의" :description="`총 ${total.toLocaleString()}건`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:mail" title="1:1 문의" :description="`총 ${total.toLocaleString()}건`">
       <template #actions>
         <Button
           v-if="selectedIds.length"

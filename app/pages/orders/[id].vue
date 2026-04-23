@@ -86,11 +86,13 @@ const addressLine = (s: OrderShipping | undefined) =>
 </script>
 
 <template>
-  <div class="p-8 max-w-5xl">
+  <div class="p-4 sm:p-8 max-w-5xl">
     <DetailHeader
+      icon="lucide:shopping-cart"
       :title="order?.orderNumber ?? (loading ? '…' : '주문')"
       :subtitle="order ? `주문 ID · ${order.orderId}` : null"
       back-to="/orders"
+      back-label="주문 목록으로"
     >
       <template #actions>
         <StatusBadge v-if="order" :status="order.status" />

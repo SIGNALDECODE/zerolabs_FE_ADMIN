@@ -32,6 +32,24 @@ const mode = ref<'upload' | 'url'>('upload')
 const uploading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
+/**
+ * URL 모드 검증 상태:
+ * - null: 검증 전 (입력 중)
+ * - true: 이미지 로드 성공 (또는 빈 값)
+ * - false: 형식 오류 또는 이미지 로드 실패
+ */
+const urlValid = ref<boolean | null>(null)
+const URL_PATTERN = /^https?:\/\/.+/i
+
+const validateUrlFormat = (url: string): boolean => !url || URL_PATTERN.test(url.trim())
+
+watch(() => props.modelValue, (v) => {
+  // 값이 비거나 형식 오류면 즉시 결정. 형식 OK 면 img load/error 결과를 기다림.
+  if (!v) urlValid.value = true
+  else if (!validateUrlFormat(v)) urlValid.value = false
+  else urlValid.value = null
+}, { immediate: true })
+
 const acceptList = computed(() => props.accept.split(',').map(s => s.trim()).filter(Boolean))
 
 const validate = (file: File): string | null => {
@@ -152,13 +170,25 @@ const toggleMode = () => {
     </div>
 
     <!-- 미리보기 -->
-    <div v-if="modelValue" class="rounded-md border bg-muted/30 p-2">
+    <div v-if="modelValue && urlValid !== false" class="rounded-md border bg-muted/30 p-2">
       <img
         :src="modelValue"
         :class="['rounded object-contain', previewClass]"
-        @error="($event.target as HTMLImageElement).style.display = 'none'"
+        @load="urlValid = true"
+        @error="urlValid = false"
       />
       <p class="mt-1 truncate font-mono text-[10px] text-muted-foreground">{{ modelValue }}</p>
+    </div>
+    <div
+      v-else-if="modelValue && urlValid === false"
+      class="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+    >
+      <Icon name="lucide:alert-triangle" size="14" class="shrink-0 mt-0.5" />
+      <div class="min-w-0">
+        <p class="font-medium">이미지를 불러올 수 없습니다.</p>
+        <p class="mt-0.5 truncate font-mono text-[10px] opacity-80">{{ modelValue }}</p>
+        <p class="mt-0.5 opacity-80">URL 형식 (http/https) 과 접근 가능 여부를 확인하세요.</p>
+      </div>
     </div>
     <div v-else class="flex items-center justify-center rounded-md border border-dashed py-6 text-xs text-muted-foreground">
       <Icon name="lucide:image" size="14" class="mr-1" />

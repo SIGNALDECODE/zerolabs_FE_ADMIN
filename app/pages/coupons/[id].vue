@@ -27,6 +27,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const statusLabels: Record<string, string> = {
   REGISTERED: '등록', ACTIVE: '발급중', STOPPED: '발급중지',
   ENDED: '종료', RECALLED: '회수완료'
@@ -103,7 +106,14 @@ const resetForm = () => {
     gradeIds: c.grades?.map(g => g.id) ?? [],
     categoryIds: c.categories?.map(cat => cat.id) ?? []
   })
+  captureSnapshot()
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const load = async () => {
   if (isNew) return
@@ -171,6 +181,7 @@ const submit = async () => {
     if (isNew) {
       const res = await couponApi.create(buildBody())
       toast.success('쿠폰을 등록했습니다.')
+      captureSnapshot()
       router.push(`/coupons/${res.id}`)
     } else {
       await couponApi.update(id, buildBody())
@@ -244,15 +255,18 @@ const validityText = computed(() => {
 })
 
 onMounted(() => { load(); loadGrades(); loadCategories() })
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.value?.name ?? '쿠폰'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-4xl">
+  <div class="p-4 sm:p-8 max-w-4xl">
     <DetailHeader
+      icon="lucide:ticket"
       :title="isNew ? '새 쿠폰 등록' : (coupon?.name ?? (loading ? '…' : '쿠폰'))"
       :subtitle="isNew ? null : (coupon ? `쿠폰 ID · ${coupon.id}` : null)"
       back-to="/coupons"
+      back-label="쿠폰 목록으로"
     >
       <template #actions>
         <template v-if="!editing && coupon">

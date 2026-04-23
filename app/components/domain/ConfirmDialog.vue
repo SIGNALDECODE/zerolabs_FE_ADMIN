@@ -13,11 +13,41 @@ const resolve = (value: boolean) => {
   state.resolver = null
   state.open = false
 }
+
+/**
+ * Enter 키 자동 제출.
+ * - danger tone 은 실수 방지를 위해 Enter 차단 (명시적 클릭 필요)
+ * - cancel 버튼에 포커스가 있을 때는 cancel 동작 우선 (브라우저 기본 button click)
+ */
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key !== 'Enter' || e.isComposing) return
+  const target = e.target as HTMLElement | null
+  if (target?.tagName === 'BUTTON') return // 버튼 자체 click 우선
+  if (state.tone === 'danger') return
+  e.preventDefault()
+  resolve(true)
+}
+
+/**
+ * 다이얼로그 열림 시 default 액션 버튼에 자동 포커스.
+ * - default tone: 확인 버튼 (즉시 Enter 가능)
+ * - danger tone: 취소 버튼 (실수 방지 — Enter 시 취소가 안전)
+ */
+watch(() => state.open, async (open) => {
+  if (!open) return
+  await nextTick()
+  await nextTick() // reka-ui 트랜지션 후 초기 포커스 트랩이 잡히고 난 뒤
+  // 전역에 ConfirmDialog 인스턴스 1개라 querySelector 안전
+  const selector = state.tone === 'danger'
+    ? 'button[data-confirm-cancel]'
+    : 'button[data-confirm-action]'
+  ;(document.querySelector(selector) as HTMLElement | null)?.focus()
+})
 </script>
 
 <template>
   <AlertDialog :open="state.open" @update:open="(v: boolean) => !v && resolve(false)">
-    <AlertDialogContent>
+    <AlertDialogContent @keydown="onKeydown">
       <AlertDialogHeader>
         <AlertDialogTitle>{{ state.title }}</AlertDialogTitle>
         <AlertDialogDescription v-if="state.description">
@@ -25,8 +55,11 @@ const resolve = (value: boolean) => {
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click.capture="resolve(false)">{{ state.cancelText }}</AlertDialogCancel>
+        <AlertDialogCancel data-confirm-cancel @click.capture="resolve(false)">
+          {{ state.cancelText }}
+        </AlertDialogCancel>
         <AlertDialogAction
+          data-confirm-action
           :class="state.tone === 'danger' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''"
           @click.capture="resolve(true)"
         >

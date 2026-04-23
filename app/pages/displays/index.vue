@@ -101,8 +101,8 @@ const recommendedSection = computed(() =>
 </script>
 
 <template>
-  <div class="p-8 max-w-4xl">
-    <PageHeader title="전시 섹션" :description="`${sections.length}개 섹션`">
+  <div class="p-4 sm:p-8 max-w-4xl">
+    <PageHeader icon="lucide:layers" title="전시 섹션" :description="`${sections.length}개 섹션`">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">

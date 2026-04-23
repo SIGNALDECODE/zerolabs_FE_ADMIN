@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CategoryNode } from '~/types/content'
+import type { CatNode, DragState, DropTarget, DropPosition } from '~/components/domain/CategoryTreeEditor.vue'
 
 useHead({ title: '카테고리 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -7,18 +8,6 @@ definePageMeta({ layout: 'default' })
 const categoryApi = useAdminCategory()
 const toast = useToast()
 const confirm = useConfirm()
-
-interface CatNode {
-  id: number | null
-  name: string
-  sortOrder: number
-  imageUrl?: string | null
-  imageIndex?: number | null
-  imageFile?: File | null
-  imagePreview?: string | null
-  children?: CatNode[]
-  _expanded?: boolean
-}
 
 interface CategoryPayloadNode {
   id: number | null
@@ -28,6 +17,10 @@ interface CategoryPayloadNode {
   children: CategoryPayloadNode[]
 }
 
+/** 신규 노드/기존 노드 모두 고유 식별 위해 부여. mutation 이후에도 안정. */
+let uidCounter = 0
+const nextUid = () => ++uidCounter
+
 const tree = ref<CatNode[]>([])
 const original = ref<CategoryNode[]>([])
 const deletedIds = ref<number[]>([])
@@ -35,11 +28,20 @@ const loading = ref(false)
 const saving = ref(false)
 const editing = ref(false)
 
+// ─── 드래그 상태 ─────────────────────────────────────────
+const dragState = ref<DragState | null>(null)
+const dropTarget = ref<DropTarget | null>(null)
+
+// ─── 검색 ─────────────────────────────────────────────
+const searchKeyword = ref('')
+const searchActive = computed(() => searchKeyword.value.trim().length > 0)
+
 const countDeep = (list: CatNode[]): number =>
   list.reduce((n, c) => n + 1 + (c.children?.length ? countDeep(c.children) : 0), 0)
 
 const normalize = (list: CategoryNode[] | undefined): CatNode[] =>
   (list ?? []).map((c, i) => ({
+    _uid: nextUid(),
     id: c.id ?? null,
     name: c.name ?? '',
     sortOrder: c.sortOrder ?? i,
@@ -65,8 +67,37 @@ const cancelEdit = () => {
   editing.value = false
   tree.value = normalize(original.value)
   deletedIds.value = []
+  searchKeyword.value = ''
 }
 
+// ─── 트리 mutation 헬퍼 ──────────────────────────────────
+/** 트리 전체에서 uid 로 노드 + 부모 배열 + 자기 인덱스를 찾아 반환. */
+const findNode = (
+  list: CatNode[],
+  uid: number
+): { node: CatNode, parent: CatNode[], index: number } | null => {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i]!._uid === uid) return { node: list[i]!, parent: list, index: i }
+    const children = list[i]!.children
+    if (children?.length) {
+      const found = findNode(children, uid)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** ancestor 후손 안에 target 이 있는지 검사 (자기 자신 포함). */
+const isDescendantOrSelf = (ancestor: CatNode, targetUid: number): boolean => {
+  if (ancestor._uid === targetUid) return true
+  return !!ancestor.children?.some(c => isDescendantOrSelf(c, targetUid))
+}
+
+const reindexSortOrder = (list: CatNode[]) => {
+  list.forEach((it, idx) => { it.sortOrder = idx })
+}
+
+// ─── 일반 액션 ───────────────────────────────────────────
 const removeNode = async (node: CatNode, parent: CatNode[]) => {
   const ok = await confirm.ask('카테고리 삭제', {
     description: `"${node.name || '이름 없음'}"${node.children?.length ? ` 및 하위 ${countDeep(node.children)}개` : ''}를 삭제합니다. 저장 전까지는 실제 DB 에 반영되지 않습니다.`,
@@ -83,11 +114,12 @@ const removeNode = async (node: CatNode, parent: CatNode[]) => {
   }
   const i = parent.indexOf(node)
   if (i >= 0) parent.splice(i, 1)
-  parent.forEach((it, idx) => { it.sortOrder = idx })
+  reindexSortOrder(parent)
 }
 
 const addChild = (parent: CatNode[]) => {
   parent.push({
+    _uid: nextUid(),
     id: null,
     name: '',
     sortOrder: parent.length,
@@ -100,14 +132,146 @@ const addChild = (parent: CatNode[]) => {
 
 const addRoot = () => addChild(tree.value)
 
+// ─── 드래그앤드롭 핸들러 ─────────────────────────────────
+const onDragStart = (node: CatNode) => {
+  dragState.value = { fromUid: node._uid }
+  dropTarget.value = null
+}
+
+const onDragOver = (node: CatNode, position: DropPosition) => {
+  if (!dragState.value) return
+  // 자기 자신 또는 자기 후손 위에는 드롭 불가
+  const found = findNode(tree.value, dragState.value.fromUid)
+  if (found && isDescendantOrSelf(found.node, node._uid)) {
+    dropTarget.value = null
+    return
+  }
+  dropTarget.value = { toUid: node._uid, position }
+}
+
+const onDrop = () => {
+  const drag = dragState.value
+  const target = dropTarget.value
+  if (!drag || !target) {
+    dragState.value = null
+    dropTarget.value = null
+    return
+  }
+
+  const from = findNode(tree.value, drag.fromUid)
+  const to = findNode(tree.value, target.toUid)
+  if (!from || !to) {
+    dragState.value = null
+    dropTarget.value = null
+    return
+  }
+
+  // 자기 자신/후손에는 드롭 불가 (방어적 재검증)
+  if (isDescendantOrSelf(from.node, target.toUid)) {
+    dragState.value = null
+    dropTarget.value = null
+    return
+  }
+
+  // 1) 원래 위치에서 제거
+  from.parent.splice(from.index, 1)
+
+  // 2) 대상 위치에 삽입 (제거 후 인덱스 재계산 — 같은 부모면 시프트)
+  if (target.position === 'inside') {
+    if (!to.node.children) to.node.children = []
+    to.node.children.push(from.node)
+    to.node._expanded = true
+  } else {
+    // 같은 부모에서 제거된 후 to.index 가 변할 수 있어 재조회
+    const toAfter = findNode(tree.value, target.toUid)
+    if (!toAfter) {
+      // 복원 시도
+      from.parent.splice(from.index, 0, from.node)
+    } else {
+      const insertIndex = target.position === 'before' ? toAfter.index : toAfter.index + 1
+      toAfter.parent.splice(insertIndex, 0, from.node)
+    }
+  }
+
+  // 3) 영향받은 부모들의 sortOrder 재계산
+  reindexSortOrder(tree.value)
+  const allParents = new Set<CatNode[]>()
+  const collectParents = (list: CatNode[]) => {
+    allParents.add(list)
+    list.forEach(n => { if (n.children?.length) collectParents(n.children) })
+  }
+  collectParents(tree.value)
+  allParents.forEach(reindexSortOrder)
+
+  dragState.value = null
+  dropTarget.value = null
+}
+
+const onDragEnd = () => {
+  dragState.value = null
+  dropTarget.value = null
+}
+
+// ─── 펼치기 / 접기 일괄 ──────────────────────────────────
+const setExpandedAll = (list: CatNode[], v: boolean) => {
+  list.forEach(n => {
+    n._expanded = v
+    if (n.children?.length) setExpandedAll(n.children, v)
+  })
+}
+const expandAll = () => setExpandedAll(tree.value, true)
+const collapseAll = () => setExpandedAll(tree.value, false)
+
+// ─── 검색 ─────────────────────────────────────────────
+/**
+ * 검색 매칭 결과:
+ *  - true: 직접 매칭 (강조)
+ *  - false: 비매칭 (디밍)
+ *  - null: 검색어 없음
+ *
+ * 매칭 조건: 자기 이름이 키워드 포함 OR 매칭된 자식이 있음 (트리에서 보이도록).
+ * 매칭된 자식이 있는 경우 부모는 'parent-of-match' 라 디밍 안 함 (false 가 아닌 자체 false 도 아님 → null 처리)
+ */
+const matchUidSet = computed<Set<number> | null>(() => {
+  if (!searchActive.value) return null
+  const kw = searchKeyword.value.trim().toLowerCase()
+  const set = new Set<number>()
+  const visit = (list: CatNode[]): boolean => {
+    let anyChild = false
+    for (const n of list) {
+      const selfMatch = n.name.toLowerCase().includes(kw)
+      const childMatch = n.children?.length ? visit(n.children) : false
+      if (selfMatch) set.add(n._uid)
+      if (selfMatch || childMatch) {
+        // 표시 유지를 위해 set 에는 자기 자신 포함 (parent-of-match 도)
+        set.add(n._uid)
+        anyChild = true
+        // 매칭된 가지는 자동 펼침
+        if (n.children?.length) n._expanded = true
+      }
+    }
+    return anyChild
+  }
+  visit(tree.value)
+  return set
+})
+
+const isMatch = (node: CatNode): boolean | null => {
+  const set = matchUidSet.value
+  if (!set) return null
+  if (!set.has(node._uid)) return false
+  // 직접 매칭 vs 부모-of-매칭 구분: 자기 이름이 키워드 포함이면 true, 아니면 null (디밍 안 함)
+  return node.name.toLowerCase().includes(searchKeyword.value.trim().toLowerCase())
+    ? true
+    : null
+}
+
+// ─── 저장 payload 조립 ───────────────────────────────────
 /**
  * 트리 순회하며 FormData 조립.
  * - imageFile 이 있는 노드: categoryImages 배열에 push + imageIndex = 해당 position
  * - imageUrl 도 없고 file 도 없는 노드: imageIndex = null (이미지 삭제로 해석)
  * - imageUrl 만 있는 기존 노드: imageIndex = null (백엔드가 기존 URL 유지)
- *
- * NOTE: 백엔드는 imageIndex=null 을 "이미지 없음" 과 "유지" 중 어느 쪽으로 해석하는지 확인 필요.
- * 현재는 기존 imageUrl 은 유지되는 것을 기대 (sync API 동작).
  */
 const buildPayload = (list: CatNode[], files: File[]): CategoryPayloadNode[] =>
   list.map((n, i) => {
@@ -125,7 +289,6 @@ const buildPayload = (list: CatNode[], files: File[]): CategoryPayloadNode[] =>
     }
   })
 
-/** 백엔드 CategoryException 에러 코드 → 한글 라벨. 미매핑 코드는 원본 노출. */
 const DELETE_FAIL_LABEL: Record<string, string> = {
   CATEGORY_HAS_PRODUCTS: '하위 상품 존재',
   CATEGORY_HAS_CHILDREN: '하위 카테고리 존재'
@@ -163,7 +326,6 @@ const save = async () => {
 
     const imageNote = files.length ? ` (이미지 ${files.length}개 업로드)` : ''
     if (res.failedIds.length > 0) {
-      // 생성/수정은 모두 성공했지만 일부 삭제가 실패한 케이스.
       toast.warn(`동기화 완료 · 삭제 실패 ${res.failedIds.length}건: ${summarizeFailures(res.failedReasons)}${imageNote}`)
     } else {
       toast.success(`카테고리를 동기화했습니다.${imageNote}`)
@@ -178,8 +340,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8 max-w-4xl">
-    <PageHeader title="카테고리 관리" :description="`총 ${total}개 · 트리 구조`">
+  <div class="p-4 sm:p-8 max-w-4xl">
+    <PageHeader icon="lucide:folder-tree" title="카테고리 관리" :description="`총 ${total}개 · 트리 구조`">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">
@@ -196,21 +358,53 @@ onMounted(load)
       <CardContent class="pt-6">
         <p class="text-sm text-muted-foreground">
           <Icon name="lucide:info" size="14" class="inline mr-1" />
-          편집 버튼을 누르면 카테고리 이름 · 순서 · 삭제 · 신규 생성이 가능합니다. 저장 시 전체 트리가 동기화됩니다.
+          편집 버튼을 누르면 카테고리 이름·이미지·순서·계층을 드래그로 변경할 수 있고, 삭제·신규 생성도 가능합니다.
         </p>
       </CardContent>
     </Card>
 
-    <Card v-if="editing" class="mb-4 border-amber-200 bg-amber-50/50">
-      <CardContent class="pt-6 flex items-center justify-between flex-wrap gap-2">
-        <div class="text-sm text-amber-800">
-          <Icon name="lucide:edit-3" size="14" class="inline mr-1" />
-          편집 모드 · 삭제 대기 {{ deletedIds.length }}개
+    <!-- 편집 모드 툴바: 펼치기/접기, 검색, 신규 추가 -->
+    <Card v-if="editing" class="mb-4 border-amber-200 bg-amber-50/40">
+      <CardContent class="pt-6 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <div class="text-sm text-amber-800 inline-flex items-center gap-1.5">
+            <Icon name="lucide:edit-3" size="14" />
+            편집 모드 · 삭제 대기 <strong class="font-semibold">{{ deletedIds.length }}</strong>개
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" @click="expandAll">
+              <Icon name="lucide:chevrons-down" size="14" class="mr-1" /> 모두 펼치기
+            </Button>
+            <Button variant="outline" size="sm" @click="collapseAll">
+              <Icon name="lucide:chevrons-up" size="14" class="mr-1" /> 모두 접기
+            </Button>
+            <Button variant="outline" size="sm" @click="addRoot">
+              <Icon name="lucide:plus" size="14" class="mr-1" /> 루트 추가
+            </Button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <Button variant="outline" size="sm" @click="addRoot">
-            <Icon name="lucide:plus" size="14" class="mr-1" /> 루트 카테고리 추가
-          </Button>
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 max-w-md">
+            <Icon name="lucide:search" size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              v-model="searchKeyword"
+              class="h-8 pl-8 text-sm"
+              placeholder="카테고리명으로 검색 (매칭된 가지는 자동 펼침)"
+            />
+            <button
+              v-if="searchActive"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 grid place-items-center h-5 w-5 rounded-full hover:bg-muted text-muted-foreground"
+              title="검색 초기화"
+              @click="searchKeyword = ''"
+            >
+              <Icon name="lucide:x" size="12" />
+            </button>
+          </div>
+          <p class="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <Icon name="lucide:grip-vertical" size="12" />
+            왼쪽 손잡이로 드래그 — 위/아래는 같은 레벨, 가운데는 하위로
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -227,13 +421,20 @@ onMounted(load)
           </Button>
         </div>
         <template v-else>
-          <!-- 편집 모드 -->
+          <!-- 편집 모드: 드래그 가능 트리 -->
           <CategoryTreeEditor
             v-if="editing"
             :nodes="tree"
             :depth="0"
+            :drag-state="dragState"
+            :drop-target="dropTarget"
+            :is-match="isMatch"
             @remove="removeNode"
             @add-child="addChild"
+            @drag-start="onDragStart"
+            @drag-over="onDragOver"
+            @drop="onDrop"
+            @drag-end="onDragEnd"
           />
           <!-- 조회 모드 -->
           <ul v-else class="divide-y">

@@ -159,11 +159,13 @@ const shippingTitle = computed(() => ({
 </script>
 
 <template>
-  <div class="p-8 max-w-4xl">
+  <div class="p-4 sm:p-8 max-w-4xl">
     <DetailHeader
+      icon="lucide:refresh-cw"
       :title="claim ? `${typeLabels[claim.claimType] ?? claim.claimType} 클레임` : (loading ? '…' : '클레임')"
       :subtitle="claim ? `클레임 ID · ${claim.claimId}` : null"
       back-to="/claims"
+      back-label="클레임 목록으로"
     >
       <template #actions>
         <StatusBadge v-if="claim" :label="statusLabels[claim.status] ?? claim.status" :status="claim.status" />

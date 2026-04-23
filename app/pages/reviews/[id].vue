@@ -34,7 +34,7 @@ useHead({ title: () => `리뷰 #${id} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
       :title="`리뷰 #${id}`"
       :subtitle="review?.productName ?? null"

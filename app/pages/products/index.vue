@@ -57,8 +57,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="상품 관리" :description="`총 ${totalElements.toLocaleString()}개`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:package" title="상품 관리" :description="`총 ${totalElements.toLocaleString()}개`">
       <template #actions>
         <Button @click="navigateTo('/products/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 상품 등록

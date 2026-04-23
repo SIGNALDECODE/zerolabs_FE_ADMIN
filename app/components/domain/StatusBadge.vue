@@ -142,24 +142,28 @@ const resolvedLabel = computed(() => {
   return props.status ?? '-'
 })
 
+/**
+ * 톤별 배경/글자/테두리 색상.
+ * 다크모드: 진한 톤(900/30 alpha) + 밝은 글자(300) + 어두운 테두리(800) 조합.
+ */
 const CLASS_MAP: Record<NonNullable<Props['tone']>, string> = {
-  default: 'bg-slate-100 text-slate-700 border-slate-200',
-  success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  warning: 'bg-amber-50 text-amber-800 border-amber-200',
-  info: 'bg-blue-50 text-blue-700 border-blue-200',
-  scheduled: 'bg-violet-50 text-violet-700 border-violet-200',
-  muted: 'bg-slate-50 text-slate-500 border-slate-200',
-  danger: 'bg-rose-50 text-rose-700 border-rose-200'
+  default: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-200 dark:border-slate-700',
+  success: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900',
+  warning: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900',
+  info: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900',
+  scheduled: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900',
+  muted: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-800',
+  danger: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900'
 }
 
 const DOT_CLASS_MAP: Record<NonNullable<Props['tone']>, string> = {
-  default: 'bg-slate-400',
-  success: 'bg-emerald-500',
-  warning: 'bg-amber-500',
-  info: 'bg-blue-500',
-  scheduled: 'bg-violet-500',
-  muted: 'bg-slate-300',
-  danger: 'bg-rose-500'
+  default: 'bg-slate-400 dark:bg-slate-500',
+  success: 'bg-emerald-500 dark:bg-emerald-400',
+  warning: 'bg-amber-500 dark:bg-amber-400',
+  info: 'bg-blue-500 dark:bg-blue-400',
+  scheduled: 'bg-violet-500 dark:bg-violet-400',
+  muted: 'bg-slate-300 dark:bg-slate-600',
+  danger: 'bg-rose-500 dark:bg-rose-400'
 }
 
 const SIZE_CLASS_MAP: Record<NonNullable<Props['size']>, string> = {

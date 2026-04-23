@@ -71,8 +71,8 @@ onMounted(() => { load(); loadCategories() })
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="FAQ" :description="`총 ${total.toLocaleString()}건 · 카테고리 ${categories.length}개`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:book-open" title="FAQ" :description="`총 ${total.toLocaleString()}건 · 카테고리 ${categories.length}개`">
       <template #actions>
         <Button variant="outline" @click="createCategory">
           <Icon name="lucide:folder-plus" size="14" class="mr-1" /> 카테고리 추가

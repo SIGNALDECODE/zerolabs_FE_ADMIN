@@ -97,8 +97,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8 max-w-5xl">
-    <PageHeader title="운영 정책" description="주문 · 배송 · 상품 · 반품 정책">
+  <div class="p-4 sm:p-8 max-w-5xl">
+    <PageHeader icon="lucide:scroll-text" title="운영 정책" description="주문 · 배송 · 상품 · 반품 정책">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">

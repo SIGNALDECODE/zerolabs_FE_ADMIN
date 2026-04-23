@@ -57,11 +57,13 @@ useHead({ title: () => `${qna.value?.title ?? 'Q&A'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:help-circle"
       :title="qna?.title ?? (loading ? '…' : 'Q&A')"
       :subtitle="qna ? `Q&A ID · ${qna.id}` : null"
       back-to="/qnas"
+      back-label="Q&A 목록으로"
     >
       <template #actions>
         <StatusBadge

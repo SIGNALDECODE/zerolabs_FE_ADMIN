@@ -36,7 +36,7 @@ useHead({ title: `주문 #${orderId} 환불 이력 | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-4xl">
+  <div class="p-4 sm:p-8 max-w-4xl">
     <DetailHeader
       :title="`주문 #${orderId} 환불 이력`"
       :subtitle="`환불 ${refunds.length}건`"

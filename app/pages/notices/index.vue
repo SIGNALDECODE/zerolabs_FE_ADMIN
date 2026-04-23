@@ -56,8 +56,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="공지사항" :description="`총 ${total.toLocaleString()}건`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:megaphone" title="공지사항" :description="`총 ${total.toLocaleString()}건`">
       <template #actions>
         <Button @click="router.push('/notices/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 공지 등록

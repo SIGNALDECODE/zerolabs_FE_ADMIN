@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatDate } from '~/utils/format'
 import type { Review } from '~/types/content'
 
@@ -68,8 +68,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="리뷰 관리" :description="`총 ${total.toLocaleString()}건`" />
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:star" title="리뷰 관리" :description="`총 ${total.toLocaleString()}건`" />
 
     <FilterBar @search="search">
       <Select v-model="filters.rating">

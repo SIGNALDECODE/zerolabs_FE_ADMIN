@@ -59,11 +59,13 @@ useHead({ title: () => `${inquiry.value?.title ?? '문의'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:mail"
       :title="inquiry?.title ?? (loading ? '…' : '문의')"
       :subtitle="inquiry ? `문의 ID · ${inquiry.id}` : null"
       back-to="/inquiries"
+      back-label="1:1 문의 목록으로"
     >
       <template #actions>
         <StatusBadge v-if="inquiry" :label="statusLabels[inquiry.status] ?? inquiry.status" :status="inquiry.status" />

@@ -19,6 +19,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const form = reactive<{
   type: NoticeType
   title: string
@@ -54,8 +57,15 @@ const load = async () => {
       isPinned: notice.value?.isPinned ?? false,
       status: notice.value?.status ?? 'ACTIVE'
     })
+    captureSnapshot()
   } finally { loading.value = false }
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const startEdit = () => { editing.value = true }
 const cancelEdit = () => {
@@ -80,6 +90,7 @@ const submit = async () => {
     if (isNew) {
       const res = await noticeApi.create({ ...form })
       toast.success('공지를 등록했습니다.')
+      captureSnapshot()
       router.push(`/notices/${res.id}`)
     } else {
       await noticeApi.update(id, { ...form })
@@ -109,15 +120,18 @@ const remove = async () => {
 }
 
 onMounted(load)
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 공지 작성 | ZeroLabs Admin' : `${notice.value?.title ?? '공지'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:megaphone"
       :title="isNew ? '새 공지 작성' : (notice?.title ?? (loading ? '…' : '공지'))"
       :subtitle="isNew ? null : (notice ? `공지 ID · ${notice.id}` : null)"
       back-to="/notices"
+      back-label="공지 목록으로"
     >
       <template #actions>
         <template v-if="!editing && notice">

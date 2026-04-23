@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatCurrency, formatDate } from '~/utils/format'
 import type { Promotion } from '~/types/marketing'
 
@@ -55,8 +55,8 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="p-8">
-    <PageHeader title="프로모션 관리" :description="`총 ${total.toLocaleString()}개`">
+  <div class="p-4 sm:p-8">
+    <PageHeader icon="lucide:percent" title="프로모션 관리" :description="`총 ${total.toLocaleString()}개`">
       <template #actions>
         <Button @click="router.push('/promotions/new')">
           <Icon name="lucide:plus" size="16" class="mr-1" /> 프로모션 등록

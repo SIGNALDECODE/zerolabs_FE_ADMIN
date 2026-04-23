@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { formatPhone } from '~/utils/format'
 import type {
   TenantAllSettings,
@@ -174,8 +174,8 @@ const security = computed(() => settings.value?.security ?? {})
 </script>
 
 <template>
-  <div class="p-8 max-w-5xl">
-    <PageHeader title="쇼핑몰 설정" description="기본 정보 · SEO · 정산 · 점검 · SNS · 알림 · 보안">
+  <div class="p-4 sm:p-8 max-w-5xl">
+    <PageHeader icon="lucide:store" title="쇼핑몰 설정" description="기본 정보 · SEO · 정산 · 점검 · SNS · 알림 · 보안">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">

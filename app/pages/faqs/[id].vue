@@ -19,6 +19,9 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+const snapshot = ref<string>('')
+const captureSnapshot = () => { snapshot.value = JSON.stringify(form) }
+
 const form = reactive<{
   categoryId: number | null
   question: string
@@ -44,8 +47,15 @@ const load = async () => {
       question: faq.value?.question ?? '',
       answer: faq.value?.answer ?? ''
     })
+    captureSnapshot()
   } finally { loading.value = false }
 }
+
+useFormDirty(
+  () => snapshot.value,
+  () => JSON.stringify(form),
+  () => editing.value
+)
 
 const loadCategories = async () => {
   try { categories.value = await faqApi.categories() } catch { categories.value = [] }
@@ -74,6 +84,7 @@ const submit = async () => {
         answer: form.answer
       })
       toast.success('FAQ 를 등록했습니다.')
+      captureSnapshot()
       router.push(`/faqs/${res.id}`)
     } else {
       await faqApi.update(id, {
@@ -107,15 +118,18 @@ const remove = async () => {
 }
 
 onMounted(() => { load(); loadCategories() })
+if (isNew) captureSnapshot()
 useHead({ title: () => isNew ? '새 FAQ | ZeroLabs Admin' : `${faq.value?.question ?? 'FAQ'} | ZeroLabs Admin` })
 </script>
 
 <template>
-  <div class="p-8 max-w-3xl">
+  <div class="p-4 sm:p-8 max-w-3xl">
     <DetailHeader
+      icon="lucide:book-open"
       :title="isNew ? '새 FAQ 등록' : (faq?.question ?? (loading ? '…' : 'FAQ'))"
       :subtitle="isNew ? null : (faq ? `FAQ ID · ${faq.id}` : null)"
       back-to="/faqs"
+      back-label="FAQ 목록으로"
     >
       <template #actions>
         <template v-if="!editing && faq">
