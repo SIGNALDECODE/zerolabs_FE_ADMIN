@@ -18,6 +18,7 @@ const router = useRouter()
 const productApi = useAdminProduct()
 const categoryApi = useAdminCategory()
 const tagApi = useAdminTag()
+const imageApi = useAdminImage()
 const toast = useToast()
 const prompt = usePrompt()
 const confirm = useConfirm()
@@ -32,17 +33,19 @@ const loading = ref(!isNew)
 const saving = ref(false)
 const editing = ref(isNew)
 
+/** 대표 이미지 — multipart 파일 업로드. 등록 시 필수. 수정 시엔 새 파일 선택 시에만 교체. */
 const imageFile = ref<File | null>(null)
 const imagePreview = ref<string>('')
-const removeImage = ref(false)
+
+/** 갤러리 업로드 진행 중 여부 (업로드 중엔 저장 차단) */
+const galleryUploading = ref(false)
 
 /** 마지막 저장(또는 로드) 시점의 폼 스냅샷. dirty 비교용. */
 const snapshot = ref<string>('')
 const captureSnapshot = () => {
   snapshot.value = JSON.stringify({
     form,
-    hasNewImage: !!imageFile.value,
-    removeImage: removeImage.value
+    hasNewImage: !!imageFile.value
   })
 }
 
@@ -60,7 +63,7 @@ const form = reactive<ProductFormState>({
   status: 'ON_SALE',
   maxPurchaseQuantity: undefined,
   stockQuantity: 0,
-  primaryImageAltText: '',
+  imageUrls: [],
   options: []
 })
 
@@ -79,7 +82,7 @@ const totalStock = computed(() => {
       0
     )
   }
-  return Math.max(0, Number(form.stockQuantity) || 0)
+  return Math.max(0, Number(form.stockQuantity) || 0) 
 })
 
 /** 정가-판매가 차이 기반 자동 할인 프리뷰. 저장에는 영향 없음. */
@@ -129,12 +132,11 @@ const resetForm = () => {
     status: p.status ?? 'ON_SALE',
     maxPurchaseQuantity: p.maxPurchaseQuantity ?? undefined,
     stockQuantity: p.stockQuantity ?? 0,
-    primaryImageAltText: p.primaryImage?.altText ?? '',
+    imageUrls: (p.images ?? []).map(img => img.url),
     options
   } satisfies ProductFormState)
   imageFile.value = null
-  imagePreview.value = p.primaryImage?.url ?? ''
-  removeImage.value = false
+  imagePreview.value = p.primaryImageUrl ?? ''
   captureSnapshot()
 }
 
@@ -142,8 +144,7 @@ useFormDirty(
   () => snapshot.value,
   () => JSON.stringify({
     form,
-    hasNewImage: !!imageFile.value,
-    removeImage: removeImage.value
+    hasNewImage: !!imageFile.value
   }),
   () => editing.value
 )
@@ -206,16 +207,41 @@ const onImageChange = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   imageFile.value = file
-  removeImage.value = false
   const reader = new FileReader()
   reader.onload = () => { imagePreview.value = reader.result as string }
   reader.readAsDataURL(file)
 }
 
-const clearImage = () => {
-  imageFile.value = null
-  imagePreview.value = ''
-  removeImage.value = true
+/** 갤러리(상세) 이미지 업로드. /admin/images 로 사전 업로드 후 URL 을 form.imageUrls 에 추가. */
+const onGalleryAdd = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (!files.length) return
+  galleryUploading.value = true
+  try {
+    for (const file of files) {
+      try {
+        const res = await imageApi.upload(file)
+        if (res?.url) form.imageUrls.push(res.url)
+      } catch (err) {
+        toast.error(err, `이미지 업로드 실패 (${file.name})`)
+      }
+    }
+  } finally {
+    galleryUploading.value = false
+  }
+}
+
+const removeGalleryImage = (index: number) => {
+  form.imageUrls.splice(index, 1)
+}
+
+const moveGalleryImage = (index: number, dir: -1 | 1) => {
+  const target = index + dir
+  if (target < 0 || target >= form.imageUrls.length) return
+  const arr = form.imageUrls
+  ;[arr[index], arr[target]] = [arr[target]!, arr[index]!]
 }
 
 const startEdit = () => { editing.value = true }
@@ -254,8 +280,8 @@ interface ProductSavePayload {
   status: ProductFormState['status']
   maxPurchaseQuantity?: number
   stockQuantity?: number
-  primaryImageAltText?: string
-  removeImage?: boolean
+  /** 갤러리 이미지 URL 목록. 배열이 "최종 상태" (서버가 diff). 빈 배열이면 전부 삭제. */
+  imageUrls: string[]
   options?: OptionPayload[]
 }
 
@@ -293,8 +319,7 @@ const buildFormData = () => {
     stockQuantity: cleanedOptions.length === 0
       ? Math.max(0, Number(form.stockQuantity) || 0)
       : undefined,
-    primaryImageAltText: form.primaryImageAltText || undefined,
-    removeImage: !isNew && removeImage.value ? true : undefined,
+    imageUrls: [...form.imageUrls],
     options: cleanedOptions.length ? cleanedOptions : undefined
   }
   const fd = new FormData()
@@ -328,11 +353,10 @@ const submit = async () => {
   }
 
   if (isNew && !imageFile.value) {
-    const ok = await confirm.ask('대표 이미지 없이 등록', {
-      description: '이미지 없이 상품을 등록하시겠습니까? 나중에 수정에서 추가할 수 있습니다.',
-      confirmText: '등록'
-    })
-    if (!ok) return
+    return toast.error('대표 이미지는 필수입니다.')
+  }
+  if (galleryUploading.value) {
+    return toast.error('상세 이미지 업로드가 진행 중입니다. 잠시 후 다시 시도하세요.')
   }
   saving.value = true
   try {
@@ -421,20 +445,59 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
             class="text-xs w-full"
             @change="onImageChange"
           />
-          <Button
-            v-if="!isNew && imagePreview && !imageFile"
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="mt-2 w-full h-8 text-xs text-destructive"
-            @click="clearImage"
-          >
-            <Icon name="lucide:trash-2" size="12" class="mr-1" /> 이미지 제거
-          </Button>
+          <p class="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+            등록 시 필수. 수정은 새 파일을 선택할 때만 교체됩니다.
+          </p>
         </CardContent>
       </Card>
 
       <div class="space-y-5">
+        <!-- 상세 이미지 (갤러리) -->
+        <Card>
+          <CardHeader class="pb-3">
+            <CardTitle class="text-sm font-semibold">상세 이미지</CardTitle>
+            <CardDescription class="text-xs">
+              상세페이지에 순서대로 노출되는 이미지. 생략 또는 여러 장 업로드 가능. ↑↓ 버튼으로 순서를 바꾸세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-3 pt-0">
+            <div v-if="form.imageUrls.length" class="space-y-2">
+              <div
+                v-for="(url, idx) in form.imageUrls"
+                :key="url + idx"
+                class="flex items-center gap-3 rounded-md border bg-card p-2"
+              >
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
+                  <img :src="url" class="h-full w-full object-cover" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-xs text-muted-foreground">{{ url }}</div>
+                  <div class="mt-1 text-[11px] text-muted-foreground">순서 · {{ idx + 1 }}</div>
+                </div>
+                <div class="flex items-center gap-1">
+                  <Button type="button" variant="ghost" size="icon" class="h-7 w-7" :disabled="idx === 0" @click="moveGalleryImage(idx, -1)">
+                    <Icon name="lucide:chevron-up" size="14" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" class="h-7 w-7" :disabled="idx === form.imageUrls.length - 1" @click="moveGalleryImage(idx, 1)">
+                    <Icon name="lucide:chevron-down" size="14" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" class="h-7 w-7 text-destructive" @click="removeGalleryImage(idx)">
+                    <Icon name="lucide:x" size="14" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="rounded-md border border-dashed px-4 py-6 text-center text-xs text-muted-foreground">
+              등록된 상세 이미지가 없습니다.
+            </div>
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-xs hover:bg-muted/50">
+              <Icon name="lucide:upload" size="14" />
+              <span>{{ galleryUploading ? '업로드 중…' : '이미지 추가' }}</span>
+              <input type="file" accept="image/*" multiple class="hidden" :disabled="galleryUploading" @change="onGalleryAdd" />
+            </label>
+          </CardContent>
+        </Card>
+
         <!-- 기본 정보 -->
         <Card>
           <CardHeader class="pb-3">
@@ -622,7 +685,7 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           <summary class="px-4 py-3 cursor-pointer select-none text-sm font-medium flex items-center gap-2 hover:bg-muted/30">
             <Icon name="lucide:chevron-right" size="14" class="transition-transform group-open:rotate-90" />
             고급 설정
-            <span class="text-xs text-muted-foreground font-normal">원가 · 최대 구매 수량 · 이미지 대체 텍스트</span>
+            <span class="text-xs text-muted-foreground font-normal">원가 · 최대 구매 수량</span>
           </summary>
           <div class="p-4 border-t space-y-4">
             <div class="grid grid-cols-2 gap-3">
@@ -639,10 +702,6 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
                 <Label class="mb-1.5 block">최대 구매 수량 <span class="text-xs text-muted-foreground">(1인당)</span></Label>
                 <CurrencyInput v-model="form.maxPurchaseQuantity" placeholder="제한없음이면 비워두기" />
               </div>
-            </div>
-            <div>
-              <Label class="mb-1.5 block">이미지 대체 텍스트 <span class="text-xs text-muted-foreground">(접근성)</span></Label>
-              <Input v-model="form.primaryImageAltText" placeholder="예: 유기농 치킨 간식 패키지 정면" />
             </div>
           </div>
         </details>
@@ -664,9 +723,9 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
         <div>
           <div class="aspect-square rounded-md border bg-muted overflow-hidden">
             <img
-              v-if="product.primaryImage?.url"
-              :src="product.primaryImage.url"
-              :alt="product.primaryImage.altText ?? product.name"
+              v-if="product.primaryImageUrl"
+              :src="product.primaryImageUrl"
+              :alt="product.name"
               class="h-full w-full object-cover"
             />
             <div v-else class="h-full w-full grid place-items-center text-muted-foreground">
@@ -688,6 +747,23 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           />
         </DetailSection>
       </div>
+
+      <!-- 상세 이미지 -->
+      <DetailSection
+        v-if="product.images?.length"
+        title="상세 이미지"
+        :description="`${product.images.length}장`"
+      >
+        <div class="col-span-2 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div
+            v-for="img in product.images"
+            :key="img.id ?? img.url"
+            class="aspect-square overflow-hidden rounded-md border bg-muted"
+          >
+            <img :src="img.url" :alt="img.altText ?? ''" class="h-full w-full object-cover" />
+          </div>
+        </div>
+      </DetailSection>
 
       <DetailSection v-if="product.categories?.length || product.tags?.length" title="분류">
         <div class="col-span-2 space-y-3">

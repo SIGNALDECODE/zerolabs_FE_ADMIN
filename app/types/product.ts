@@ -22,11 +22,12 @@ export interface ProductListItem {
   status: ProductStatus
 }
 
-/** 백엔드 `ProductImageResponse` */
+/** 백엔드 `ProductImageResponse` — 갤러리(상세) 이미지 */
 export interface ProductImage {
   id?: number
   url: string
   altText?: string | null
+  sortOrder?: number
 }
 
 export interface ProductCategory { id: number, name: string }
@@ -58,6 +59,7 @@ export interface ProductOption {
  * 백엔드 `ProductResponse` (GET /admin/products/{id}).
  * - 옵션이 없는 상품은 top-level `stockQuantity` 에 재고 저장
  * - 옵션이 있는 상품은 각 `options[].optionValues[].stockQuantity` 합계
+ * - 이미지는 대표(`primaryImageUrl` · 필수) + 갤러리(`images[]` · 0..N) 로 분리
  */
 export interface ProductDetail {
   id: number
@@ -75,7 +77,8 @@ export interface ProductDetail {
   discountValue?: number | null
   categories?: ProductCategory[]
   tags?: ProductTag[]
-  primaryImage?: ProductImage | null
+  primaryImageUrl?: string | null
+  images?: ProductImage[]
   options?: ProductOption[]
 }
 
@@ -111,6 +114,7 @@ export interface ProductFormState {
   maxPurchaseQuantity: number | string | undefined
   /** 옵션 없는 상품의 top-level 재고. 옵션 있으면 무시. */
   stockQuantity: number | string
-  primaryImageAltText: string
+  /** 갤러리(상세) 이미지 URL 목록. 배열 순서대로 sortOrder 부여 */
+  imageUrls: string[]
   options: ProductOptionForm[]
 }

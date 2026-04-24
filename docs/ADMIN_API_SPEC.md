@@ -12,6 +12,21 @@
 
 ## 변경 이력
 
+### 2026-04-24 — 백엔드 sync
+
+| BE 커밋 | 영향 | FE 반영 |
+| --- | --- | --- |
+| `b749918` 상품 이미지 다건 지원 및 대표이미지 분리 | `ProductResponse` · `ProductDetailResponse` 에 `primaryImageUrl`(string) + `images[]`(갤러리) 로 분리. `ProductCreateRequest`/`UpdateRequest` 의 `imageUrls` 는 사전 업로드된 URL 배열이며 수정 시 "최종 상태"(서버가 diff) | `types/product.ts` — `ProductDetail.primaryImage` 객체 제거 → `primaryImageUrl` + `images[]`. `ProductFormState.primaryImageAltText` 제거 → `imageUrls: string[]` 추가. `pages/products/[id].vue` — 대표이미지 필수 검증(confirm 제거), "이미지 제거" 버튼 제거, 상세 이미지 갤러리 업로더 추가(`useAdminImage` 로 사전 업로드 → URL 배열 전송, ↑↓/삭제), 저장 payload 에서 `primaryImageAltText`/`removeImage` 제거, 이미지 대체 텍스트 고급설정 필드 제거, 조회 모드에 상세 이미지 그리드 섹션 추가 |
+| `07807ac` 결제 PG 교체 (토스 → 나이스페이먼츠) | 주문/결제 흐름 BE 교체 | FE 영향 없음 — `types/order.ts` 의 `OrderPayment` 는 이미 PG-agnostic (`method`, `transactionId`, `cardCompany` 등 일반 필드). `toss` 리터럴 검색 → 코드베이스 내 0건 |
+
+상품 이미지 전환 요약 (API 계약):
+- 등록 `POST /admin/products`: multipart. `data`(JSON) + `primaryImage`(파일, **필수**). `data.imageUrls` 는 `/admin/images` 로 사전 업로드된 URL 배열
+- 수정 `PATCH /admin/products/{id}`: multipart. `data`(JSON, 선택) + `primaryImage`(파일, 선택). `imageUrls` 는 null 이면 기존 유지, 배열이면 최종 상태로 diff 처리 (빈 배열 = 전부 삭제)
+- 대표이미지 URL 제거(null 화) API 없음 → FE 에서 "이미지 제거" 플로우 불가. 교체만 가능
+
+무시 대상 (대응 불필요):
+- `bc59d19` 한국 주요 택배사 seed 9종 — 현재 FE 배송 화면은 이 영향 없음 (택배사 리스트를 하드코딩/seed 연동하지 않음)
+
 ### 2026-04-21 — 전역 타입 안전성 확보
 - `app/` 전체 `any` 제거 (105+ → 0). `pnpm typecheck` 통과
 - BE DTO 기반 request body 타입을 composable 마다 `*Body` 로 선언 (`BannerCreateBody`, `CouponCreateBody`, `ClaimApproveBody` 등)
