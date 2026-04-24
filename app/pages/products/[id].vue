@@ -429,7 +429,7 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
       <Card class="self-start">
         <CardContent class="pt-6">
           <Label class="mb-2 block">대표 이미지 <span class="text-destructive">*</span></Label>
-          <div class="aspect-square rounded-md border bg-muted overflow-hidden mb-3">
+          <div class="aspect-[4/5] rounded-md border bg-muted overflow-hidden mb-3">
             <img
               v-if="imagePreview"
               :src="imagePreview"
@@ -445,6 +445,16 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
             class="text-xs w-full"
             @change="onImageChange"
           />
+          <div class="mt-3 space-y-1.5 rounded-md bg-muted/40 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            <p class="font-medium text-foreground">권장 업로드 가이드</p>
+            <ul class="space-y-0.5 pl-0.5">
+              <li>• 비율 <strong class="text-foreground">4:5 세로형</strong> (상품 상세 히어로 기준)</li>
+              <li>• 권장 <strong class="text-foreground">1600×2000px</strong>, 최소 1000×1250px</li>
+              <li>• JPEG · PNG · WebP, <strong class="text-foreground">10MB 이하</strong></li>
+              <li>• 리스트 카드는 중앙이 우선 노출 — 피사체를 <strong class="text-foreground">중앙</strong>에</li>
+              <li>• 장바구니·주문내역에선 정사각 썸네일(92px)로 표시됨</li>
+            </ul>
+          </div>
           <p class="mt-2 text-[11px] text-muted-foreground leading-relaxed">
             등록 시 필수. 수정은 새 파일을 선택할 때만 교체됩니다.
           </p>
@@ -456,8 +466,10 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
         <Card>
           <CardHeader class="pb-3">
             <CardTitle class="text-sm font-semibold">상세 이미지</CardTitle>
-            <CardDescription class="text-xs">
-              상세페이지에 순서대로 노출되는 이미지. 생략 또는 여러 장 업로드 가능. ↑↓ 버튼으로 순서를 바꾸세요.
+            <CardDescription class="text-xs leading-relaxed">
+              상품 상세 페이지에서 대표 이미지와 함께 <strong class="text-foreground">같은 슬라이더</strong>로 스와이프되어 보입니다.
+              대표 이미지와 동일하게 <strong class="text-foreground">4:5 세로형 · 1600×2000px 권장</strong> (최소 1000×1250px).
+              비율이 다르면 잘리거나 여백이 생깁니다. 여러 장 업로드 가능, ↑↓ 버튼으로 순서를 바꾸세요.
             </CardDescription>
           </CardHeader>
           <CardContent class="space-y-3 pt-0">
