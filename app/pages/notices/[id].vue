@@ -173,8 +173,12 @@ useHead({ title: () => isNew ? '새 공지 작성 | ZeroLabs Admin' : `${notice.
         </div>
 
         <div>
-          <Label class="mb-1.5 block">내용 (HTML 가능) <span class="text-destructive">*</span></Label>
-          <Textarea v-model="form.content" rows="12" placeholder="공지 내용을 입력하세요." />
+          <Label class="mb-1.5 block">내용 <span class="text-destructive">*</span></Label>
+          <RichTextEditor
+            v-model="form.content"
+            placeholder="공지 내용을 입력하세요."
+            min-height="320px"
+          />
         </div>
 
         <div class="grid grid-cols-2 gap-4">

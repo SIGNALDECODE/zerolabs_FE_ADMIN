@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCurrency, formatDate } from '~/utils/format'
+import { formatCurrency, formatDate, toKoreanCurrency } from '~/utils/format'
 import type { Promotion, PromotionFormState } from '~/types/marketing'
 import type { CategoryNode } from '~/types/content'
 import type { PromotionCreateBody } from '~/composables/useAdminPromotion'
@@ -182,11 +182,32 @@ useHead({ title: () => isNew ? '새 프로모션 | ZeroLabs Admin' : `${promotio
             </Select>
           </div>
           <div>
-            <Label class="mb-1.5 block">
-              할인값 <span class="text-destructive">*</span>
-              <span class="text-xs text-muted-foreground ml-1">({{ form.discountType === 'RATE' ? '%' : '원' }})</span>
+            <Label class="mb-1.5 flex items-center gap-2 flex-wrap">
+              <span>
+                할인값 <span class="text-destructive">*</span>
+                <span class="text-xs text-muted-foreground ml-1">({{ form.discountType === 'RATE' ? '%' : '원' }})</span>
+              </span>
+              <span
+                v-if="form.discountType === 'AMOUNT' && toKoreanCurrency(form.discountValue)"
+                class="text-xs font-normal text-primary"
+              >
+                ≈ {{ toKoreanCurrency(form.discountValue) }}
+              </span>
             </Label>
-            <Input v-model="form.discountValue" type="number" :step="form.discountType === 'RATE' ? 1 : 100" />
+            <CurrencyInput
+              v-if="form.discountType === 'AMOUNT'"
+              v-model="form.discountValue"
+              placeholder="예: 5,000"
+            />
+            <Input
+              v-else
+              v-model="form.discountValue"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="예: 10"
+            />
           </div>
         </div>
 

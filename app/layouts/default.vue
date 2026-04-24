@@ -3,7 +3,14 @@ const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const navSections = [
+/**
+ * 소비자몰(zerolabs_FE) 통합 전까지 메뉴에서 숨길 경로.
+ * 라우트 자체는 살아있어 직접 URL 접근(개발/QA)은 가능.
+ * 통합 완료 후 Set 에서 제거하면 다시 노출됨.
+ */
+const HIDDEN_NAV_PATHS = new Set(['/displays', '/popups'])
+
+const rawNavSections = [
   {
     label: '운영',
     items: [
@@ -51,6 +58,10 @@ const navSections = [
     ]
   }
 ]
+
+const navSections = rawNavSections
+  .map(s => ({ ...s, items: s.items.filter(it => !HIDDEN_NAV_PATHS.has(it.to)) }))
+  .filter(s => s.items.length > 0)
 
 const handleLogout = async () => {
   await authStore.logout()

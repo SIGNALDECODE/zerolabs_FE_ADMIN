@@ -99,6 +99,14 @@ const addressLine = (s: OrderShipping | undefined) =>
         <Button v-if="order" variant="outline" size="sm" @click="openShipment">
           <Icon name="lucide:truck" size="14" class="mr-1" /> 송장 등록
         </Button>
+        <Button
+          v-if="order && (order.status === 'SHIPPING' || order.status === 'DELIVERED')"
+          variant="outline"
+          size="sm"
+          @click="$router.push(`/delivery?orderId=${order.orderId}`)"
+        >
+          <Icon name="lucide:package-search" size="14" class="mr-1" /> 배송 추적
+        </Button>
         <Button variant="outline" size="sm" @click="load">
           <Icon name="lucide:refresh-cw" size="14" class="mr-1" /> 새로고침
         </Button>

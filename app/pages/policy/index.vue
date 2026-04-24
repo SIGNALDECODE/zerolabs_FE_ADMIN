@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCurrency, formatNumber } from '~/utils/format'
+import { formatCurrency, formatNumber, toKoreanCurrency } from '~/utils/format'
 import type { PolicyAllSettings, PolicyFormState } from '~/types/policy'
 
 useHead({ title: '운영 정책 | ZeroLabs Admin' })
@@ -98,7 +98,7 @@ onMounted(load)
 
 <template>
   <div class="p-4 sm:p-8 max-w-5xl">
-    <PageHeader icon="lucide:scroll-text" title="운영 정책" description="주문 · 배송 · 상품 · 반품 정책">
+    <PageHeader icon="lucide:scroll-text" title="운영 정책" description="주문 검증 · 적립금 규칙 · 반품 교환 배송비">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">
@@ -114,49 +114,79 @@ onMounted(load)
     <div v-if="loading" class="text-center text-muted-foreground py-20">불러오는 중…</div>
 
     <!-- 폼 -->
+    <!--
+      주의: 현재 실제 비즈니스 로직에 반영되는 항목만 노출.
+      아래 항목은 BE 미연동으로 임시 숨김 (`docs` 또는 PR 로 별도 전달):
+        - 주문: cancelHours, autoConfirmDays
+        - 배송: 전체 (baseShippingFee 등) — ShippingFeeService 카테고리 mismatch 버그
+        - 상품: 전체 (defaultTaxRate, lowStockThreshold 등)
+        - 반품: returnDays, exchangeDays, returnAddress, nonReturnable, guideText
+    -->
     <div v-else-if="editing" class="space-y-6">
       <Card>
         <CardHeader class="pb-3">
           <CardTitle class="text-base">주문 정책</CardTitle>
+          <CardDescription class="text-xs">주문 접수 시 검증되는 기본 조건</CardDescription>
         </CardHeader>
-        <CardContent class="grid gap-4 grid-cols-2">
+        <CardContent class="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <div>
-            <Label class="mb-1.5 block text-xs">최소 주문금액 (원)</Label>
-            <Input v-model="form.order.minOrderAmount" type="number" step="1000" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>최소 주문금액 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.order.minOrderAmount)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.order.minOrderAmount) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.order.minOrderAmount" />
           </div>
           <div>
-            <Label class="mb-1.5 block text-xs">최대 주문금액 (원)</Label>
-            <Input v-model="form.order.maxOrderAmount" type="number" step="1000" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>최대 주문금액 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.order.maxOrderAmount)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.order.maxOrderAmount) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.order.maxOrderAmount" />
           </div>
-          <div>
+          <div class="sm:col-span-2">
             <Label class="mb-1.5 block text-xs">최대 주문수량 (1회)</Label>
             <Input v-model="form.order.maxOrderQuantity" type="number" step="1" />
           </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">취소 가능 시간 (시간)</Label>
-            <Input v-model="form.order.cancelHours" type="number" step="1" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">자동 구매확정 (일)</Label>
-            <Input v-model="form.order.autoConfirmDays" type="number" step="1" />
-          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader class="pb-3">
+          <CardTitle class="text-base">적립금 정책</CardTitle>
+          <CardDescription class="text-xs">결제 시 자동 적립 · 사용 규칙</CardDescription>
+        </CardHeader>
+        <CardContent class="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <div>
             <Label class="mb-1.5 block text-xs">기본 적립률 (%)</Label>
             <Input v-model="form.order.pointRate" type="number" step="1" />
           </div>
           <div>
-            <Label class="mb-1.5 block text-xs">적립금 최소 주문액 (원)</Label>
-            <Input v-model="form.order.pointMinOrder" type="number" step="1000" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>적립금 최소 주문액 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.order.pointMinOrder)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.order.pointMinOrder) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.order.pointMinOrder" />
           </div>
           <div>
-            <Label class="mb-1.5 block text-xs">최소 사용 적립금 (원)</Label>
-            <Input v-model="form.order.pointMinUse" type="number" step="100" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>최소 사용 적립금 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.order.pointMinUse)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.order.pointMinUse) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.order.pointMinUse" />
           </div>
           <div>
             <Label class="mb-1.5 block text-xs">최대 사용 비율 (%)</Label>
             <Input v-model="form.order.pointMaxUseRate" type="number" step="1" />
           </div>
-          <div>
+          <div class="sm:col-span-2">
             <Label class="mb-1.5 block text-xs">적립금 유효기간</Label>
             <Select v-model="form.order.pointExpirationType">
               <SelectTrigger class="w-full">
@@ -174,101 +204,28 @@ onMounted(load)
       </Card>
 
       <Card>
-        <CardHeader class="pb-3"><CardTitle class="text-base">배송 정책</CardTitle></CardHeader>
-        <CardContent class="grid gap-4 grid-cols-2">
+        <CardHeader class="pb-3">
+          <CardTitle class="text-base">반품/교환 배송비</CardTitle>
+          <CardDescription class="text-xs">클레임(반품/교환) 승인 시 자동 차감</CardDescription>
+        </CardHeader>
+        <CardContent class="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <div>
-            <Label class="mb-1.5 block text-xs">기본 배송비 (원)</Label>
-            <Input v-model="form.delivery.baseShippingFee" type="number" step="100" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">무료배송 기준 (원)</Label>
-            <Input v-model="form.delivery.freeShippingAmount" type="number" step="1000" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">도서산간 추가비 (원)</Label>
-            <Input v-model="form.delivery.islandExtraFee" type="number" step="100" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">예상 배송기간</Label>
-            <Input v-model="form.delivery.estimatedDays" placeholder="예: 2~3일" />
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">추가 배송비 지역 (쉼표 구분)</Label>
-            <Input v-model="form.delivery.islandRegions" placeholder="제주, 울릉, 백령…" />
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">배송 안내문</Label>
-            <Textarea v-model="form.delivery.guideText" rows="3" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="pb-3"><CardTitle class="text-base">상품 정책</CardTitle></CardHeader>
-        <CardContent class="grid gap-4 grid-cols-2">
-          <div>
-            <Label class="mb-1.5 block text-xs">기본 세율 (%)</Label>
-            <Input v-model="form.product.defaultTaxRate" type="number" step="1" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>반품 배송비 편도 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.returnPolicy.returnFee)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.returnPolicy.returnFee) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.returnPolicy.returnFee" />
           </div>
           <div>
-            <Label class="mb-1.5 block text-xs">재고 부족 알림 기준</Label>
-            <Input v-model="form.product.lowStockThreshold" type="number" step="1" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">최대 옵션 수</Label>
-            <Input v-model="form.product.maxOptions" type="number" step="1" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">최대 이미지 수</Label>
-            <Input v-model="form.product.maxImages" type="number" step="1" />
-          </div>
-          <div class="col-span-2 flex gap-6">
-            <label class="inline-flex items-center gap-2 text-sm">
-              <input v-model="form.product.showSoldout" type="checkbox" class="h-4 w-4" />
-              품절 상품 표시
-            </label>
-            <label class="inline-flex items-center gap-2 text-sm">
-              <input v-model="form.product.showStock" type="checkbox" class="h-4 w-4" />
-              재고 수량 표시
-            </label>
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">상품 안내문</Label>
-            <Textarea v-model="form.product.guideText" rows="3" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="pb-3"><CardTitle class="text-base">반품 정책</CardTitle></CardHeader>
-        <CardContent class="grid gap-4 grid-cols-2">
-          <div>
-            <Label class="mb-1.5 block text-xs">반품 가능 기간 (일)</Label>
-            <Input v-model="form.returnPolicy.returnDays" type="number" step="1" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">교환 가능 기간 (일)</Label>
-            <Input v-model="form.returnPolicy.exchangeDays" type="number" step="1" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">반품 배송비 편도 (원)</Label>
-            <Input v-model="form.returnPolicy.returnFee" type="number" step="100" />
-          </div>
-          <div>
-            <Label class="mb-1.5 block text-xs">교환 배송비 왕복 (원)</Label>
-            <Input v-model="form.returnPolicy.exchangeFee" type="number" step="100" />
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">반품 주소</Label>
-            <Input v-model="form.returnPolicy.returnAddress" />
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">반품 불가 품목 (쉼표 구분)</Label>
-            <Input v-model="form.returnPolicy.nonReturnable" placeholder="속옷, 수영복, 식품류…" />
-          </div>
-          <div class="col-span-2">
-            <Label class="mb-1.5 block text-xs">반품/교환 안내문</Label>
-            <Textarea v-model="form.returnPolicy.guideText" rows="3" />
+            <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+              <span>교환 배송비 왕복 <span class="text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.returnPolicy.exchangeFee)" class="font-normal text-primary normal-case">
+                ≈ {{ toKoreanCurrency(form.returnPolicy.exchangeFee) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.returnPolicy.exchangeFee" />
           </div>
         </CardContent>
       </Card>
@@ -281,14 +238,15 @@ onMounted(load)
       </div>
     </div>
 
-    <!-- 조회 -->
+    <!-- 조회 — 편집과 동일하게 실제 적용되는 항목만 -->
     <div v-else-if="policy" class="grid gap-6 md:grid-cols-2">
-      <DetailSection title="주문 정책">
+      <DetailSection title="주문 정책" description="주문 접수 검증">
         <DetailField label="최소 주문금액" :value="formatCurrency(policy.order?.minOrderAmount)" />
         <DetailField label="최대 주문금액" :value="formatCurrency(policy.order?.maxOrderAmount)" />
         <DetailField label="최대 주문수량" :value="formatNumber(policy.order?.maxOrderQuantity)" />
-        <DetailField label="취소 가능 시간" :value="policy.order?.cancelHours != null ? `${policy.order.cancelHours}시간` : '-'" />
-        <DetailField label="자동 구매확정" :value="policy.order?.autoConfirmDays != null ? `${policy.order.autoConfirmDays}일` : '-'" />
+      </DetailSection>
+
+      <DetailSection title="적립금 정책" description="결제 시 적립·사용 규칙">
         <DetailField label="기본 적립률" :value="policy.order?.pointRate != null ? `${policy.order.pointRate}%` : '-'" />
         <DetailField label="적립금 최소 주문액" :value="formatCurrency(policy.order?.pointMinOrder)" />
         <DetailField label="최소 사용 적립금" :value="formatCurrency(policy.order?.pointMinUse)" />
@@ -296,25 +254,7 @@ onMounted(load)
         <DetailField label="적립금 유효기간" :value="policy.order?.pointExpirationType" />
       </DetailSection>
 
-      <DetailSection title="배송 정책">
-        <DetailField label="기본 배송비" :value="formatCurrency(policy.delivery?.baseShippingFee)" />
-        <DetailField label="무료배송 기준" :value="formatCurrency(policy.delivery?.freeShippingAmount)" />
-        <DetailField label="도서산간 추가비" :value="formatCurrency(policy.delivery?.islandExtraFee)" />
-        <DetailField label="예상 배송기간" :value="policy.delivery?.estimatedDays" />
-      </DetailSection>
-
-      <DetailSection title="상품 정책">
-        <DetailField label="기본 세율" :value="policy.product?.defaultTaxRate ? `${policy.product.defaultTaxRate}%` : '-'" />
-        <DetailField label="재고 부족 기준" :value="formatNumber(policy.product?.lowStockThreshold)" />
-        <DetailField label="최대 옵션 수" :value="policy.product?.maxOptions" />
-        <DetailField label="최대 이미지 수" :value="policy.product?.maxImages" />
-        <DetailField label="품절 표시" :value="policy.product?.showSoldout === undefined ? '-' : (policy.product.showSoldout ? '예' : '아니오')" />
-        <DetailField label="재고 표시" :value="policy.product?.showStock === undefined ? '-' : (policy.product.showStock ? '예' : '아니오')" />
-      </DetailSection>
-
-      <DetailSection title="반품 정책">
-        <DetailField label="반품 가능 기간" :value="policy.returnPolicy?.returnDays ? `${policy.returnPolicy.returnDays}일` : '-'" />
-        <DetailField label="교환 가능 기간" :value="policy.returnPolicy?.exchangeDays ? `${policy.returnPolicy.exchangeDays}일` : '-'" />
+      <DetailSection title="반품/교환 배송비" description="클레임 승인 시 자동 차감">
         <DetailField label="반품 배송비" :value="formatCurrency(policy.returnPolicy?.returnFee)" />
         <DetailField label="교환 배송비" :value="formatCurrency(policy.returnPolicy?.exchangeFee)" />
       </DetailSection>

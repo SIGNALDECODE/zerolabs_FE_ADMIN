@@ -167,15 +167,13 @@ onMounted(load)
 const info = computed(() => settings.value?.info ?? {})
 const seo = computed(() => settings.value?.seo ?? {})
 const settlement = computed(() => settings.value?.settlement ?? {})
-const maintenance = computed(() => settings.value?.maintenance ?? {})
 const social = computed(() => settings.value?.social ?? {})
-const notification = computed(() => settings.value?.notification ?? {})
-const security = computed(() => settings.value?.security ?? {})
+// maintenance / notification / security 는 BE 미연동으로 UI 숨김 → computed 도 제거
 </script>
 
 <template>
   <div class="p-4 sm:p-8 max-w-5xl">
-    <PageHeader icon="lucide:store" title="쇼핑몰 설정" description="기본 정보 · SEO · 정산 · 점검 · SNS · 알림 · 보안">
+    <PageHeader icon="lucide:store" title="쇼핑몰 설정" description="기본 정보 · SEO · 정산 계좌 · SNS · 헤더 메뉴">
       <template #actions>
         <template v-if="!editing">
           <Button variant="outline" size="sm" @click="load">
@@ -245,9 +243,18 @@ const security = computed(() => settings.value?.security ?? {})
         </CardContent>
       </Card>
 
+      <!--
+        BE 미연동으로 임시 숨김 (별도 전달):
+          - 점검 모드 (maintenance): 점검 인터셉터 미구현
+          - 알림 메일 (notification): 이메일 발송 로직 없음
+          - 보안 (security): Spring Security 동적 설정 미반영
+      -->
       <div class="grid gap-6 md:grid-cols-2">
         <Card>
-          <CardHeader class="pb-3"><CardTitle class="text-base">정산</CardTitle></CardHeader>
+          <CardHeader class="pb-3">
+            <CardTitle class="text-base">정산 계좌</CardTitle>
+            <CardDescription class="text-xs">소비자몰 결제 페이지 · 무통장 입금 안내에 노출</CardDescription>
+          </CardHeader>
           <CardContent class="space-y-4">
             <div><Label class="mb-1.5 block text-xs">은행명</Label><Input v-model="form.settlement.bankName" /></div>
             <div><Label class="mb-1.5 block text-xs">예금주</Label><Input v-model="form.settlement.bankHolder" /></div>
@@ -256,85 +263,16 @@ const security = computed(() => settings.value?.security ?? {})
         </Card>
 
         <Card>
-          <CardHeader class="pb-3"><CardTitle class="text-base">점검 모드</CardTitle></CardHeader>
-          <CardContent class="space-y-4">
-            <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
-              <input v-model="form.maintenance.enabled" type="checkbox" class="h-4 w-4" />
-              점검 모드 활성화
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <div><Label class="mb-1.5 block text-xs">시작</Label><Input v-model="form.maintenance.startAt" type="datetime-local" /></div>
-              <div><Label class="mb-1.5 block text-xs">종료</Label><Input v-model="form.maintenance.endAt" type="datetime-local" /></div>
-            </div>
-            <div><Label class="mb-1.5 block text-xs">안내 메시지</Label><Textarea v-model="form.maintenance.message" rows="3" /></div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader class="pb-3"><CardTitle class="text-base">소셜 미디어</CardTitle></CardHeader>
+          <CardHeader class="pb-3">
+            <CardTitle class="text-base">소셜 미디어</CardTitle>
+            <CardDescription class="text-xs">소비자몰 푸터·SNS 영역에 노출</CardDescription>
+          </CardHeader>
           <CardContent class="space-y-4">
             <div><Label class="mb-1.5 block text-xs">Instagram</Label><Input v-model="form.social.instagram" /></div>
             <div><Label class="mb-1.5 block text-xs">Facebook</Label><Input v-model="form.social.facebook" /></div>
             <div><Label class="mb-1.5 block text-xs">YouTube</Label><Input v-model="form.social.youtube" /></div>
             <div><Label class="mb-1.5 block text-xs">Blog</Label><Input v-model="form.social.blog" /></div>
             <div><Label class="mb-1.5 block text-xs">KakaoTalk 채널</Label><Input v-model="form.social.kakao" /></div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader class="pb-3"><CardTitle class="text-base">알림 메일</CardTitle></CardHeader>
-          <CardContent class="space-y-4">
-            <div class="flex items-center justify-between">
-              <Label class="text-xs">주문 알림</Label>
-              <label class="inline-flex items-center gap-2 text-xs">
-                <input v-model="form.notification.orderEnabled" type="checkbox" class="h-4 w-4" /> 활성
-              </label>
-            </div>
-            <Input v-model="form.notification.orderEmail" type="email" placeholder="order@example.com" :disabled="!form.notification.orderEnabled" />
-
-            <div class="flex items-center justify-between">
-              <Label class="text-xs">클레임 알림</Label>
-              <label class="inline-flex items-center gap-2 text-xs">
-                <input v-model="form.notification.claimEnabled" type="checkbox" class="h-4 w-4" /> 활성
-              </label>
-            </div>
-            <Input v-model="form.notification.claimEmail" type="email" placeholder="claim@example.com" :disabled="!form.notification.claimEnabled" />
-
-            <div class="flex items-center justify-between">
-              <Label class="text-xs">문의 알림</Label>
-              <label class="inline-flex items-center gap-2 text-xs">
-                <input v-model="form.notification.inquiryEnabled" type="checkbox" class="h-4 w-4" /> 활성
-              </label>
-            </div>
-            <Input v-model="form.notification.inquiryEmail" type="email" placeholder="inquiry@example.com" :disabled="!form.notification.inquiryEnabled" />
-          </CardContent>
-        </Card>
-
-        <Card class="md:col-span-2">
-          <CardHeader class="pb-3"><CardTitle class="text-base">보안</CardTitle></CardHeader>
-          <CardContent class="grid gap-4 grid-cols-2">
-            <div>
-              <Label class="mb-1.5 block text-xs">세션 타임아웃 (분, 15~480)</Label>
-              <Input v-model="form.security.sessionTimeout" type="number" step="1" min="15" max="480" />
-            </div>
-            <div>
-              <Label class="mb-1.5 block text-xs">최대 로그인 시도 (1~10)</Label>
-              <Input v-model="form.security.maxLoginAttempts" type="number" step="1" min="1" max="10" />
-            </div>
-            <div>
-              <Label class="mb-1.5 block text-xs">계정 잠금 시간 (분, 1~1440)</Label>
-              <Input v-model="form.security.accountLockDuration" type="number" step="1" min="1" max="1440" />
-            </div>
-            <div>
-              <Label class="mb-1.5 block text-xs">비밀번호 변경 주기 (일, 30~365)</Label>
-              <Input v-model="form.security.passwordChangeCycle" type="number" step="1" min="30" max="365" />
-            </div>
-            <div class="col-span-2">
-              <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input v-model="form.security.passwordChangeRequired" type="checkbox" class="h-4 w-4" />
-                비밀번호 변경 강제
-              </label>
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -377,46 +315,27 @@ const security = computed(() => settings.value?.security ?? {})
         </DetailSection>
       </div>
 
+      <!-- 조회 — 편집과 동일하게 실제 적용되는 항목만 -->
       <div class="grid gap-6 md:grid-cols-2">
-        <DetailSection title="SEO">
+        <DetailSection title="SEO" description="검색·SNS 공유 메타 정보">
           <DetailField label="타이틀" :value="seo.metaTitle" full />
           <DetailField label="설명" :value="seo.metaDescription" full />
           <DetailField label="키워드" :value="seo.metaKeywords" full />
           <DetailField label="OG 이미지" :value="seo.ogImage" full mono />
         </DetailSection>
 
-        <DetailSection title="점검 모드">
-          <DetailField label="활성" :value="maintenance.enabled === undefined ? '-' : (maintenance.enabled ? '예' : '아니오')" />
-          <DetailField label="시작" :value="maintenance.startAt" />
-          <DetailField label="종료" :value="maintenance.endAt" />
-          <DetailField label="메시지" :value="maintenance.message" full />
-        </DetailSection>
-
-        <DetailSection title="정산">
+        <DetailSection title="정산 계좌" description="소비자 무통장 입금 안내">
           <DetailField label="은행" :value="settlement.bankName" />
           <DetailField label="예금주" :value="settlement.bankHolder" />
           <DetailField label="계좌번호" :value="settlement.bankAccount" mono full />
         </DetailSection>
 
-        <DetailSection title="소셜">
+        <DetailSection title="소셜 미디어" description="소비자몰 푸터에 노출">
           <DetailField label="Instagram" :value="social.instagram" />
           <DetailField label="Facebook" :value="social.facebook" />
           <DetailField label="YouTube" :value="social.youtube" />
           <DetailField label="Blog" :value="social.blog" />
           <DetailField label="KakaoTalk" :value="social.kakao" />
-        </DetailSection>
-
-        <DetailSection title="알림">
-          <DetailField label="주문" :value="notification.orderEnabled === undefined ? '-' : (notification.orderEnabled ? `ON · ${notification.orderEmail ?? '-'}` : 'OFF')" full />
-          <DetailField label="클레임" :value="notification.claimEnabled === undefined ? '-' : (notification.claimEnabled ? `ON · ${notification.claimEmail ?? '-'}` : 'OFF')" full />
-          <DetailField label="문의" :value="notification.inquiryEnabled === undefined ? '-' : (notification.inquiryEnabled ? `ON · ${notification.inquiryEmail ?? '-'}` : 'OFF')" full />
-        </DetailSection>
-
-        <DetailSection title="보안">
-          <DetailField label="세션 타임아웃" :value="security.sessionTimeout ? `${security.sessionTimeout}분` : '-'" />
-          <DetailField label="최대 로그인 시도" :value="security.maxLoginAttempts" />
-          <DetailField label="계정 잠금" :value="security.accountLockDuration ? `${security.accountLockDuration}분` : '-'" />
-          <DetailField label="비밀번호 주기" :value="security.passwordChangeCycle ? `${security.passwordChangeCycle}일` : '-'" />
         </DetailSection>
       </div>
 

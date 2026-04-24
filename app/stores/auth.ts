@@ -51,8 +51,8 @@ export const useAuthStore = defineStore('auth', {
       if (import.meta.client) {
         localStorage.removeItem('adminLoggedIn')
       }
-    },
-
+    }, 
+    
     setSessionExpired(message = '') {
       this.sessionExpired = true
       this.sessionExpiredMessage = message

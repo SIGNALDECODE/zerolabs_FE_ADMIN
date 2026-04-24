@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { formatCurrency, formatDate } from '~/utils/format'
+import { formatCurrency, formatDate, toKoreanCurrency } from '~/utils/format'
 import type { OrderDetail, OrderItem } from '~/types/order'
 import type { RefundRecord } from '~/types/claim'
 import type { ClaimType, ClaimReasonType } from '~/types/common'
@@ -277,8 +277,13 @@ const statusLabels: Record<string, string> = {
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <Label class="mb-1.5 block text-xs">환불 금액 (선택)</Label>
-              <Input v-model="processForm.amount" type="number" step="100" placeholder="미입력 시 자동 계산" />
+              <Label class="mb-1.5 flex items-center gap-2 text-xs flex-wrap">
+                <span>환불 금액 <span class="text-muted-foreground">(선택)</span></span>
+                <span v-if="toKoreanCurrency(processForm.amount)" class="font-normal text-primary normal-case">
+                  ≈ {{ toKoreanCurrency(processForm.amount) }}
+                </span>
+              </Label>
+              <CurrencyInput v-model="processForm.amount" placeholder="미입력 시 자동 계산" />
             </div>
             <div class="flex items-end pb-1">
               <label class="inline-flex items-center gap-2 text-sm cursor-pointer">

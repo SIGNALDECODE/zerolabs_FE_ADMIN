@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCurrency, formatNumber } from '~/utils/format'
+import { formatCurrency, formatNumber, toKoreanCurrency } from '~/utils/format'
 import type {
   ProductDetail,
   ProductOption,
@@ -454,13 +454,10 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
                 <Label>재고</Label>
                 <span v-if="form.options.length > 0" class="text-xs text-muted-foreground">옵션값별 합계</span>
               </div>
-              <Input
+              <CurrencyInput
                 v-if="form.options.length === 0"
                 v-model="form.stockQuantity"
-                type="number"
-                step="1"
-                min="0"
-                placeholder="재고 수량"
+                placeholder="재고 수량 (예: 100)"
               />
               <div
                 v-else
@@ -485,16 +482,41 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
         <Card>
           <CardHeader class="pb-3">
             <CardTitle class="text-sm font-semibold">가격</CardTitle>
+            <CardDescription class="text-xs leading-relaxed">
+              <strong class="text-foreground">정가</strong> 보다 <strong class="text-foreground">판매가</strong> 가 낮으면 자동으로 할인 % 가 계산되어 고객에게 표시됩니다.
+              할인이 없으면 두 값을 동일하게 입력하세요.
+            </CardDescription>
           </CardHeader>
-          <CardContent class="grid grid-cols-2 gap-3 pt-0">
+          <CardContent class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0">
             <div>
-              <Label class="mb-1.5 block">정가 <span class="text-destructive">*</span></Label>
-              <Input v-model="form.regularPrice" type="number" step="100" min="0" />
+              <Label class="mb-1.5 flex items-center gap-2">
+                <span>정가 <span class="text-destructive">*</span></span>
+                <span v-if="toKoreanCurrency(form.regularPrice)" class="text-xs font-normal text-primary">
+                  ≈ {{ toKoreanCurrency(form.regularPrice) }}
+                </span>
+              </Label>
+              <CurrencyInput
+                v-model="form.regularPrice"
+                placeholder="할인 전 원래 가격 (예: 29,000)"
+              />
+              <p class="mt-1 text-xs text-muted-foreground">소비자에게 <span class="line-through">취소선</span> 으로 표시됩니다.</p>
             </div>
             <div>
-              <Label class="mb-1.5 block">판매가 <span class="text-destructive">*</span></Label>
-              <Input v-model="form.salePrice" type="number" step="100" min="0" />
-              <p v-if="discountPreview" class="mt-1 text-xs text-muted-foreground">{{ discountPreview }}</p>
+              <Label class="mb-1.5 flex items-center gap-2">
+                <span>판매가 <span class="text-destructive">*</span></span>
+                <span v-if="toKoreanCurrency(form.salePrice)" class="text-xs font-normal text-primary">
+                  ≈ {{ toKoreanCurrency(form.salePrice) }}
+                </span>
+              </Label>
+              <CurrencyInput
+                v-model="form.salePrice"
+                placeholder="실제 결제하는 금액 (예: 26,100)"
+              />
+              <p v-if="discountPreview" class="mt-1 text-xs font-medium text-rose-600 dark:text-rose-400">
+                <Icon name="lucide:tag" size="11" class="inline mr-0.5 -mt-0.5" />
+                {{ discountPreview }}
+              </p>
+              <p v-else class="mt-1 text-xs text-muted-foreground">실제 결제 금액. 정가보다 낮으면 할인으로 표시됩니다.</p>
             </div>
           </CardContent>
         </Card>
@@ -605,12 +627,17 @@ useHead({ title: () => isNew ? '새 상품 등록 | ZeroLabs Admin' : `${product
           <div class="p-4 border-t space-y-4">
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <Label class="mb-1.5 block">원가 <span class="text-xs text-muted-foreground">(비공개)</span></Label>
-                <Input v-model="form.costPrice" type="number" step="100" min="0" placeholder="매입가" />
+                <Label class="mb-1.5 flex items-center gap-2">
+                  <span>원가 <span class="text-xs text-muted-foreground">(비공개 · 마진 계산용)</span></span>
+                  <span v-if="toKoreanCurrency(form.costPrice)" class="text-xs font-normal text-primary">
+                    ≈ {{ toKoreanCurrency(form.costPrice) }}
+                  </span>
+                </Label>
+                <CurrencyInput v-model="form.costPrice" placeholder="매입 단가 (예: 15,000)" />
               </div>
               <div>
                 <Label class="mb-1.5 block">최대 구매 수량 <span class="text-xs text-muted-foreground">(1인당)</span></Label>
-                <Input v-model="form.maxPurchaseQuantity" type="number" step="1" min="1" placeholder="제한없음이면 비워두기" />
+                <CurrencyInput v-model="form.maxPurchaseQuantity" placeholder="제한없음이면 비워두기" />
               </div>
             </div>
             <div>

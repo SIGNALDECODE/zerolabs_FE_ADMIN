@@ -145,21 +145,15 @@ const removeValue = (gi: number, vi: number) => {
               />
             </TableCell>
             <TableCell>
-              <Input
+              <CurrencyInput
                 :model-value="val.additionalPrice"
-                type="number"
-                step="100"
-                min="0"
                 class="h-8 text-right"
                 @update:model-value="v => updateValue(gi, vi, { additionalPrice: Math.max(0, Number(v ?? 0)) })"
               />
             </TableCell>
             <TableCell>
-              <Input
+              <CurrencyInput
                 :model-value="val.stockQuantity"
-                type="number"
-                step="1"
-                min="0"
                 class="h-8 text-right"
                 @update:model-value="v => updateValue(gi, vi, { stockQuantity: Math.max(0, Number(v ?? 0)) })"
               />

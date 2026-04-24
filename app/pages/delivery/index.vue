@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
 import type { Carrier, ShipmentTracking } from '~/composables/useAdminDelivery'
+import type { OrderListItem } from '~/types/order'
 
 useHead({ title: '배송 관리 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
 
+const route = useRoute()
+const router = useRouter()
 const deliveryApi = useAdminDelivery()
+const orderApi = useAdminOrder()
 const toast = useToast()
 
 const carriers = ref<Carrier[]>([])
@@ -16,6 +20,9 @@ const searched = ref<number | null>(null)
 const trackings = ref<ShipmentTracking[]>([])
 const searching = ref(false)
 
+const recent = ref<OrderListItem[]>([])
+const loadingRecent = ref(false)
+
 const loadCarriers = async () => {
   loadingCarriers.value = true
   try {
@@ -23,9 +30,20 @@ const loadCarriers = async () => {
   } finally { loadingCarriers.value = false }
 }
 
-const search = async () => {
-  const n = Number(orderIdInput.value)
+const loadRecent = async () => {
+  loadingRecent.value = true
+  try {
+    const data = await orderApi.list({ status: 'SHIPPING', page: 1, size: 10 })
+    recent.value = data?.content || []
+  } catch {
+    recent.value = []
+  } finally { loadingRecent.value = false }
+}
+
+const search = async (orderId?: number) => {
+  const n = orderId ?? Number(orderIdInput.value)
   if (!n || Number.isNaN(n)) return
+  orderIdInput.value = String(n)
   searching.value = true
   searched.value = n
   try {
@@ -36,17 +54,34 @@ const search = async () => {
   } finally { searching.value = false }
 }
 
+const pickRecent = (row: OrderListItem) => {
+  router.replace({ query: { ...route.query, orderId: String(row.id) } })
+  search(row.id)
+}
+
+const clearSearch = () => {
+  orderIdInput.value = ''
+  searched.value = null
+  trackings.value = []
+  router.replace({ query: {} })
+}
+
 const refresh = async (shipmentId: number) => {
   try {
     await deliveryApi.refreshTracking(shipmentId)
     toast.success('배송 정보를 갱신했습니다.')
-    if (searched.value) await search()
+    if (searched.value) await search(searched.value)
   } catch (e) {
     toast.error(e, '갱신 실패')
   }
 }
 
-onMounted(loadCarriers)
+onMounted(() => {
+  loadCarriers()
+  loadRecent()
+  const qid = Number(route.query.orderId)
+  if (qid && !Number.isNaN(qid)) search(qid)
+})
 </script>
 
 <template>
@@ -59,17 +94,20 @@ onMounted(loadCarriers)
 
     <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
       <div class="space-y-4">
-        <FilterBar @search="search">
+        <FilterBar @search="() => search()">
           <label class="text-sm text-muted-foreground whitespace-nowrap">주문 ID</label>
           <Input
             v-model="orderIdInput"
             type="number"
             placeholder="추적할 주문 ID 입력"
             class="max-w-xs"
-            @keyup.enter="search"
+            @keyup.enter="() => search()"
           />
           <template #actions>
-            <Button @click="search">
+            <Button variant="outline" v-if="searched !== null" @click="clearSearch">
+              <Icon name="lucide:x" size="14" class="mr-1" /> 초기화
+            </Button>
+            <Button @click="() => search()">
               <Icon name="lucide:package-search" size="14" class="mr-1" /> 추적
             </Button>
           </template>
@@ -77,11 +115,40 @@ onMounted(loadCarriers)
 
         <div v-if="searched === null">
           <Card>
-            <CardContent class="py-16 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-              <div class="grid place-items-center h-12 w-12 rounded-full bg-muted/60">
-                <Icon name="lucide:truck" size="22" class="opacity-60" />
-              </div>
-              <p class="text-sm">주문 ID 를 입력하고 추적하면 배송 이력이 표시됩니다.</p>
+            <CardHeader class="pb-2">
+              <CardTitle class="text-base">배송 중 주문</CardTitle>
+              <CardDescription>최근 10건 · 주문을 클릭하면 배송 이력이 표시됩니다.</CardDescription>
+            </CardHeader>
+            <CardContent class="p-0">
+              <div v-if="loadingRecent" class="py-10 text-center text-muted-foreground text-sm">불러오는 중…</div>
+              <ul v-else-if="recent.length" class="divide-y">
+                <li
+                  v-for="row in recent"
+                  :key="row.id"
+                  class="px-4 py-3 flex items-center gap-3 text-sm hover:bg-muted/40 cursor-pointer"
+                  @click="pickRecent(row)"
+                >
+                  <img
+                    v-if="row.productThumbnailUrl"
+                    :src="row.productThumbnailUrl"
+                    class="h-9 w-9 rounded border object-cover shrink-0"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono text-xs text-muted-foreground">{{ row.orderNumber }}</span>
+                      <StatusBadge :status="row.status" />
+                    </div>
+                    <div class="truncate text-muted-foreground text-xs mt-0.5">
+                      {{ row.productName ?? '-' }} · {{ row.itemCount ?? 0 }}개
+                    </div>
+                  </div>
+                  <span class="shrink-0 text-xs text-muted-foreground font-mono">{{ formatDate(row.orderedAt) }}</span>
+                  <Icon name="lucide:chevron-right" size="14" class="text-muted-foreground" />
+                </li>
+              </ul>
+              <p v-else class="py-10 text-center text-muted-foreground text-sm">
+                배송 중인 주문이 없습니다. 주문 ID 로 직접 추적할 수 있습니다.
+              </p>
             </CardContent>
           </Card>
         </div>

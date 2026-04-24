@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatCurrency, formatDate, formatNumber } from '~/utils/format'
+import { formatCurrency, formatDate, formatNumber, toKoreanCurrency } from '~/utils/format'
 import type { CouponStatus } from '~/types/common'
 import type { CouponDetail, CouponFormState } from '~/types/marketing'
 import type { CouponCreateBody } from '~/composables/useAdminCoupon'
@@ -320,28 +320,59 @@ useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label class="mb-1.5 block">
-              할인값 <span class="text-destructive">*</span>
-              <span class="text-xs text-muted-foreground ml-1">({{ form.discountType === 'RATE' ? '%' : '원' }})</span>
+            <Label class="mb-1.5 flex items-center gap-2 flex-wrap">
+              <span>
+                할인값 <span class="text-destructive">*</span>
+                <span class="text-xs text-muted-foreground ml-1">({{ form.discountType === 'RATE' ? '%' : '원' }})</span>
+              </span>
+              <span
+                v-if="form.discountType === 'AMOUNT' && toKoreanCurrency(form.discountValue)"
+                class="text-xs font-normal text-primary"
+              >
+                ≈ {{ toKoreanCurrency(form.discountValue) }}
+              </span>
             </Label>
-            <Input v-model="form.discountValue" type="number" :step="form.discountType === 'RATE' ? 1 : 100" />
+            <CurrencyInput
+              v-if="form.discountType === 'AMOUNT'"
+              v-model="form.discountValue"
+              placeholder="예: 5,000"
+            />
+            <Input
+              v-else
+              v-model="form.discountValue"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              placeholder="예: 10"
+            />
           </div>
           <div v-if="form.discountType === 'RATE'">
-            <Label class="mb-1.5 block">최대 할인 한도 (원)</Label>
-            <Input v-model="form.maxDiscountAmount" type="number" step="100" placeholder="제한 없음이면 비워두기" />
+            <Label class="mb-1.5 flex items-center gap-2 flex-wrap">
+              <span>최대 할인 한도 <span class="text-xs text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.maxDiscountAmount)" class="text-xs font-normal text-primary">
+                ≈ {{ toKoreanCurrency(form.maxDiscountAmount) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.maxDiscountAmount" placeholder="제한 없음이면 비워두기" />
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label class="mb-1.5 block">최소 주문금액 (원)</Label>
-            <Input v-model="form.minOrderAmount" type="number" step="1000" />
+            <Label class="mb-1.5 flex items-center gap-2 flex-wrap">
+              <span>최소 주문금액 <span class="text-xs text-muted-foreground">(원)</span></span>
+              <span v-if="toKoreanCurrency(form.minOrderAmount)" class="text-xs font-normal text-primary">
+                ≈ {{ toKoreanCurrency(form.minOrderAmount) }}
+              </span>
+            </Label>
+            <CurrencyInput v-model="form.minOrderAmount" placeholder="예: 30,000" />
           </div>
           <div>
             <Label class="mb-1.5 block">발급 수량</Label>
-            <Input v-model="form.totalQuantity" type="number" step="1" placeholder="무제한이면 비워두기" />
+            <CurrencyInput v-model="form.totalQuantity" placeholder="무제한이면 비워두기" />
           </div>
         </div>
 
