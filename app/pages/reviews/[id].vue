@@ -13,12 +13,63 @@ const id = Number(route.params.id)
 const review = ref<Review | null>(null)
 const loading = ref(true)
 const saving = ref(false)
+const replyDraft = ref('')
+const editingReply = ref(false)
+const submittingReply = ref(false)
 
 const load = async () => {
   loading.value = true
   try {
     review.value = await reviewApi.detail(id)
+    replyDraft.value = review.value?.adminReply ?? ''
+    editingReply.value = false
   } finally { loading.value = false }
+}
+
+const startReplyEdit = () => {
+  replyDraft.value = review.value?.adminReply ?? ''
+  editingReply.value = true
+}
+const cancelReplyEdit = () => {
+  editingReply.value = false
+  replyDraft.value = review.value?.adminReply ?? ''
+}
+
+const submitReply = async () => {
+  const reply = replyDraft.value.trim()
+  if (!reply) {
+    toast.error('답글 내용을 입력해주세요.')
+    return
+  }
+  if (reply.length > 2000) {
+    toast.error('답글은 2000자 이하로 작성해주세요.')
+    return
+  }
+  submittingReply.value = true
+  try {
+    await reviewApi.writeReply(id, reply)
+    toast.success(review.value?.adminReply ? '답글을 수정했습니다.' : '답글을 등록했습니다.')
+    await load()
+  } catch (e) {
+    toast.error(e, '답글 저장 실패')
+  } finally { submittingReply.value = false }
+}
+
+const deleteReply = async () => {
+  const ok = await confirm.ask('답글을 삭제할까요?', {
+    description: '삭제된 답글은 복구할 수 없습니다.',
+    confirmText: '삭제',
+    tone: 'danger'
+  })
+  if (!ok) return
+  submittingReply.value = true
+  try {
+    await reviewApi.deleteReply(id)
+    toast.success('답글을 삭제했습니다.')
+    await load()
+  } catch (e) {
+    toast.error(e, '답글 삭제 실패')
+  } finally { submittingReply.value = false }
 }
 
 const confirm = useConfirm()
@@ -107,6 +158,53 @@ useHead({ title: () => `리뷰 #${id} | ZeroLabs Admin` })
           <Button variant="outline" size="sm" @click="router.push(`/products/${review.productId}`)">
             <Icon name="lucide:external-link" size="14" class="mr-1" /> 상품 보기
           </Button>
+        </div>
+      </DetailSection>
+
+      <DetailSection title="어드민 답글" :description="review.adminReply ? `답글 작성일 · ${formatDate(review.adminRepliedAt)}` : '아직 답글이 없습니다.'">
+        <div class="col-span-2 space-y-3">
+          <template v-if="!editingReply">
+            <div
+              v-if="review.adminReply"
+              class="whitespace-pre-wrap text-sm border rounded-md p-3 bg-muted/40"
+            >{{ review.adminReply }}</div>
+            <div class="flex gap-2">
+              <Button v-if="!review.adminReply" size="sm" @click="startReplyEdit">
+                <Icon name="lucide:message-square-plus" size="14" class="mr-1" /> 답글 작성
+              </Button>
+              <template v-else>
+                <Button size="sm" variant="outline" @click="startReplyEdit">
+                  <Icon name="lucide:pencil" size="14" class="mr-1" /> 수정
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  class="text-destructive hover:text-destructive"
+                  :disabled="submittingReply"
+                  @click="deleteReply"
+                >
+                  <Icon name="lucide:trash-2" size="14" class="mr-1" /> 삭제
+                </Button>
+              </template>
+            </div>
+          </template>
+          <template v-else>
+            <Textarea
+              v-model="replyDraft"
+              rows="4"
+              maxlength="2000"
+              placeholder="고객에게 보여질 답글을 작성하세요. (최대 2000자)"
+            />
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-muted-foreground">{{ replyDraft.length }} / 2000</span>
+              <div class="ml-auto flex gap-2">
+                <Button size="sm" variant="outline" :disabled="submittingReply" @click="cancelReplyEdit">취소</Button>
+                <Button size="sm" :disabled="submittingReply" @click="submitReply">
+                  <Icon name="lucide:save" size="14" class="mr-1" /> 저장
+                </Button>
+              </div>
+            </div>
+          </template>
         </div>
       </DetailSection>
 

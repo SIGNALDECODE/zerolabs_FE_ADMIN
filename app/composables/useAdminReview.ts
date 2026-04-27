@@ -9,6 +9,10 @@ export const useAdminReview = () => {
       api.get<PageResponse<Review>>('/admin/reviews', params),
     detail: (id: number) => api.get<Review>(`/admin/reviews/${id}`),
     toggleVisibility: (reviewIds: number[]) =>
-      api.patch<void>('/admin/reviews/visibility', { reviewIds })
+      api.patch<void>('/admin/reviews/visibility', { reviewIds }),
+    writeReply: (reviewId: number, reply: string) =>
+      api.put<void>(`/admin/reviews/${reviewId}/reply`, { reply }),
+    deleteReply: (reviewId: number) =>
+      api.del<void>(`/admin/reviews/${reviewId}/reply`)
   }
 }

@@ -10,9 +10,11 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // SSR 전용 (내부 호스트 사용 가능). 미설정 시 public.apiBase 로 폴백.
     apiBaseUrl: process.env.API_BASE_URL || '',
     public: {
-      apiBase: '/api'
+      // CSR/SSR 공통 — 브라우저에서 직접 백엔드로 호출.
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9092/api/v1'
     }
   },
 

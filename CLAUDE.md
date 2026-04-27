@@ -17,6 +17,7 @@
 
 ### API
 - 모든 HTTP 호출은 `useApi()` composable 경유. 직접 `$fetch` 금지.
+- CSR/SSR 모두 백엔드 admin-api 로 **직접 호출** (Nuxt 서버 프록시 사용 안 함). base URL 은 `NUXT_PUBLIC_API_BASE` 환경변수.
 - 도메인마다 `app/composables/useXxx.ts` 하나 — 메서드만 반환 (reactive state 금지).
 - 공유 reactive 상태가 필요하면 Pinia 스토어.
 - 응답 unwrap 은 `useApi` 가 `ApiResponse<T>.data` 자동으로 벗긴다.

@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { formatCurrency, formatNumber, toKoreanCurrency } from '~/utils/format'
-import type { PolicyAllSettings, PolicyFormState } from '~/types/policy'
+import type { PolicyAllSettings, PolicyFormState, PolicyType, TermsItem } from '~/types/policy'
+
+const POLICY_TYPE_LABEL: Record<PolicyType, string> = {
+  TERMS: '이용약관',
+  PRIVACY: '개인정보처리방침',
+  REFUND: '환불정책',
+  SHIPPING: '배송정책',
+  MEMBERSHIP: '멤버십정책',
+  POINT: '포인트정책',
+  MARKETING: '마케팅수신동의',
+  OTHER: '기타'
+}
+const POLICY_TYPE_OPTIONS = Object.entries(POLICY_TYPE_LABEL) as Array<[PolicyType, string]>
 
 useHead({ title: '운영 정책 | ZeroLabs Admin' })
 definePageMeta({ layout: 'default' })
@@ -17,7 +29,19 @@ const form = reactive<PolicyFormState>({
   order: {},
   delivery: {},
   product: {},
-  returnPolicy: {}
+  returnPolicy: {},
+  terms: []
+})
+
+const cloneTerm = (t: TermsItem): TermsItem => ({
+  id: t.id ?? null,
+  policyType: t.policyType,
+  title: t.title ?? '',
+  content: t.content ?? '',
+  version: t.version ?? '1.0',
+  isRequired: t.isRequired ?? false,
+  isActive: t.isActive ?? true,
+  publishedAt: t.publishedAt
 })
 
 const resetForm = () => {
@@ -26,6 +50,23 @@ const resetForm = () => {
   Object.assign(form.delivery, policy.value.delivery ?? {})
   Object.assign(form.product, policy.value.product ?? {})
   Object.assign(form.returnPolicy, policy.value.returnPolicy ?? {})
+  form.terms = (policy.value.terms ?? []).map(cloneTerm)
+}
+
+const addTerm = () => {
+  form.terms.push({
+    id: null,
+    policyType: 'TERMS',
+    title: '',
+    content: '',
+    version: '1.0',
+    isRequired: false,
+    isActive: true
+  })
+}
+
+const removeTerm = (idx: number) => {
+  form.terms.splice(idx, 1)
 }
 
 const load = async () => {
@@ -92,7 +133,16 @@ const submit = async () => {
         returnAddress: form.returnPolicy.returnAddress,
         nonReturnable: form.returnPolicy.nonReturnable,
         guideText: form.returnPolicy.guideText
-      }
+      },
+      terms: form.terms.map((t) => ({
+        id: t.id ?? null,
+        policyType: t.policyType,
+        title: t.title.trim(),
+        content: t.content,
+        version: t.version?.trim() || '1.0',
+        isRequired: t.isRequired ?? false,
+        isActive: t.isActive ?? true
+      }))
     })
     editing.value = false
     toast.success('운영 정책을 저장했습니다.')
@@ -292,6 +342,82 @@ onMounted(load)
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader class="pb-3 flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle class="text-base">약관 / 정책 문서</CardTitle>
+            <CardDescription class="text-xs">
+              이용약관·개인정보처리방침·마케팅수신동의 등. 신규는 ID 없이 추가, 기존 항목은 수정.
+              삭제는 백엔드 API 가 없어 "활성" 토글로 비활성화.
+            </CardDescription>
+          </div>
+          <Button type="button" size="sm" variant="outline" @click="addTerm">
+            <Icon name="lucide:plus" size="14" class="mr-1" /> 약관 추가
+          </Button>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div v-if="!form.terms.length" class="text-center text-muted-foreground text-sm py-6">
+            등록된 약관이 없습니다.
+          </div>
+          <div
+            v-for="(term, idx) in form.terms"
+            :key="term.id ?? `new-${idx}`"
+            class="border rounded-md p-4 space-y-3"
+          >
+            <div class="grid gap-3 grid-cols-1 sm:grid-cols-[180px_1fr_120px]">
+              <div>
+                <Label class="mb-1.5 block text-xs">유형</Label>
+                <Select v-model="term.policyType">
+                  <SelectTrigger class="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="[v, label] in POLICY_TYPE_OPTIONS" :key="v" :value="v">
+                      {{ label }}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label class="mb-1.5 block text-xs">제목 <span class="text-destructive">*</span></Label>
+                <Input v-model="term.title" maxlength="200" placeholder="이용약관 v1.0" />
+              </div>
+              <div>
+                <Label class="mb-1.5 block text-xs">버전</Label>
+                <Input v-model="term.version" maxlength="20" placeholder="1.0" />
+              </div>
+            </div>
+            <div>
+              <Label class="mb-1.5 block text-xs">본문 (HTML 가능) <span class="text-destructive">*</span></Label>
+              <Textarea v-model="term.content" rows="6" class="font-mono text-xs" />
+            </div>
+            <div class="flex items-center gap-6 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input v-model="term.isRequired" type="checkbox" class="h-4 w-4">
+                <span>필수 동의</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input v-model="term.isActive" type="checkbox" class="h-4 w-4">
+                <span>활성</span>
+              </label>
+              <span class="text-muted-foreground ml-auto">{{ term.id ? `ID #${term.id}` : '신규' }}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                class="text-destructive hover:text-destructive"
+                @click="removeTerm(idx)"
+              >
+                <Icon name="lucide:trash-2" size="14" class="mr-1" /> 목록에서 제거
+              </Button>
+            </div>
+            <p v-if="term.id" class="text-[11px] text-muted-foreground">
+              ⚠ 목록에서 제거해도 백엔드에서 삭제되지 않습니다. 비공개 처리하려면 "활성"을 해제하세요.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div class="flex justify-end gap-2">
         <Button variant="outline" :disabled="saving" @click="cancelEdit">취소</Button>
         <Button :disabled="saving" @click="submit">
@@ -329,6 +455,30 @@ onMounted(load)
         <DetailField label="반품 배송비" :value="formatCurrency(policy.returnPolicy?.returnFee)" />
         <DetailField label="교환 배송비" :value="formatCurrency(policy.returnPolicy?.exchangeFee)" />
       </DetailSection>
+
+      <div class="lg:col-span-2 space-y-3">
+        <h3 class="text-sm font-medium">약관 / 정책 문서</h3>
+        <div v-if="!policy.terms?.length" class="text-sm text-muted-foreground border rounded-md p-4">
+          등록된 약관이 없습니다.
+        </div>
+        <div
+          v-for="t in policy.terms ?? []"
+          :key="t.id ?? `view-${t.policyType}-${t.title}`"
+          class="border rounded-md p-4 space-y-2"
+          :class="t.isActive === false ? 'opacity-60' : ''"
+        >
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <span class="font-medium text-foreground">{{ POLICY_TYPE_LABEL[t.policyType] ?? t.policyType }}</span>
+            <span>·</span>
+            <span>v{{ t.version || '1.0' }}</span>
+            <span v-if="t.isRequired" class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">필수</span>
+            <span v-if="t.isActive === false" class="ml-1 px-1.5 py-0.5 rounded bg-muted">비활성</span>
+            <span class="ml-auto">ID #{{ t.id }}</span>
+          </div>
+          <div class="text-sm font-medium">{{ t.title }}</div>
+          <pre class="text-xs whitespace-pre-wrap font-sans text-muted-foreground line-clamp-6">{{ t.content }}</pre>
+        </div>
+      </div>
     </div>
   </div>
 </template>

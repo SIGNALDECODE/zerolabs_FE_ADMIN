@@ -45,11 +45,33 @@ export interface ReturnPolicy {
   guideText?: string
 }
 
+export type PolicyType =
+  | 'TERMS'
+  | 'PRIVACY'
+  | 'REFUND'
+  | 'SHIPPING'
+  | 'MEMBERSHIP'
+  | 'POINT'
+  | 'MARKETING'
+  | 'OTHER'
+
+export interface TermsItem {
+  id?: number | null
+  policyType: PolicyType
+  title: string
+  content: string
+  version?: string
+  isRequired?: boolean
+  isActive?: boolean
+  publishedAt?: string
+}
+
 export interface PolicyAllSettings {
   order?: OrderPolicy
   delivery?: DeliveryPolicy
   product?: ProductPolicy
   returnPolicy?: ReturnPolicy
+  terms?: TermsItem[]
 }
 
 /**
@@ -102,4 +124,5 @@ export interface PolicyFormState {
   delivery: DeliveryPolicyForm
   product: ProductPolicyForm
   returnPolicy: ReturnPolicyForm
+  terms: TermsItem[]
 }
