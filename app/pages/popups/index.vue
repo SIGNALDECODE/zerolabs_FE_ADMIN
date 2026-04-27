@@ -41,7 +41,7 @@ const load = async () => {
       size: filters.size
     })
     popups.value = data?.content ?? []
-    total.value = data?.totalElements ?? 0
+    total.value = data?.total_elements ?? 0
   } finally { loading.value = false }
 }
 

@@ -50,7 +50,7 @@ const load = async () => {
       total.value = data.length
     } else {
       admins.value = data?.content ?? []
-      total.value = data?.totalElements ?? admins.value.length
+      total.value = data?.total_elements ?? admins.value.length
     }
   } finally {
     loading.value = false

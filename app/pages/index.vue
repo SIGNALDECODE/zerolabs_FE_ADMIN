@@ -9,7 +9,7 @@ const claimApi = useAdminClaim()
 const router = useRouter()
 
 // 상태별 집계 (pending/preparing/shipping)는 현재 BE 에 전용 엔드포인트가 없어
-// 각 상태를 병렬로 count 조회 (size=1 로 totalElements 만 사용).
+// 각 상태를 병렬로 count 조회 (size=1 로 total_elements 만 사용).
 const orderStats = ref({ pending: 0, preparing: 0, shipping: 0 })
 const recentOrders = ref<OrderListItem[]>([])
 const pendingClaims = ref(0)
@@ -17,7 +17,7 @@ const loading = ref(false)
 
 const countByStatus = async (status: string): Promise<number> => {
   const res = await orderApi.list({ status, page: 1, size: 1 }).catch(() => null)
-  return res?.totalElements ?? 0
+  return res?.total_elements ?? 0
 }
 
 const loadDashboard = async () => {
@@ -33,7 +33,7 @@ const loadDashboard = async () => {
 
     recentOrders.value = orders?.content ?? []
     orderStats.value = { pending, preparing, shipping }
-    pendingClaims.value = claims?.totalElements ?? 0
+    pendingClaims.value = claims?.total_elements ?? 0
   } finally {
     loading.value = false
   }

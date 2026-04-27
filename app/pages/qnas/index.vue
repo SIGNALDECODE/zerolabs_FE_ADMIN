@@ -32,7 +32,7 @@ const columns = [
   { key: 'productId', label: '상품', width: '64px' },
   { key: 'title', label: '제목' },
   { key: 'question', label: '질문' },
-  { key: 'isSecret', label: '비밀', width: '64px', align: 'center' as const },
+  { key: 'isSecret', label: '비밀', width: '96px', align: 'center' as const },
   { key: 'answered', label: '답변 상태' },
   { key: 'createdAt', label: '작성일' }
 ]
@@ -47,7 +47,7 @@ const load = async () => {
       size: filters.size
     })
     qnas.value = data?.content ?? []
-    total.value = data?.totalElements ?? 0
+    total.value = data?.total_elements ?? 0
   } finally {
     loading.value = false
   }
@@ -112,7 +112,18 @@ onMounted(() => {
         <span class="text-muted-foreground text-sm max-w-md truncate block">{{ row.question }}</span>
       </template>
       <template #cell-isSecret="{ row }">
-        <Icon v-if="row.isSecret" name="lucide:lock" size="14" class="text-amber-600 inline" />
+        <span
+          v-if="(row.isSecret ?? (row as any).secret) === true"
+          class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 text-xs font-medium"
+        >
+          <Icon name="lucide:lock" size="13" /> 비밀
+        </span>
+        <span
+          v-else
+          class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-muted text-muted-foreground border px-2 py-1 text-xs font-medium"
+        >
+          <Icon name="lucide:globe" size="13" /> 공개
+        </span>
       </template>
       <template #cell-answered="{ row }">
         <StatusBadge

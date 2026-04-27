@@ -9,10 +9,57 @@ const route = useRoute()
 const orderApi = useAdminOrder()
 const deliveryApi = useAdminDelivery()
 const toast = useToast()
+const confirm = useConfirm()
 
 const id = Number(route.params.id)
 const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
+
+const SHIPMENT_ALLOWED_STATUSES = ['PREPARING', 'SHIPPING', 'PARTIAL_DELIVERED'] as const
+const canCreateShipment = computed(() =>
+  !!order.value && SHIPMENT_ALLOWED_STATUSES.includes(order.value.status as typeof SHIPMENT_ALLOWED_STATUSES[number])
+)
+const canMarkPreparing = computed(() => order.value?.status === 'PAID')
+const canMarkDelivered = computed(() =>
+  order.value?.status === 'SHIPPING' || order.value?.status === 'PARTIAL_DELIVERED'
+)
+
+const markingDelivered = ref(false)
+const markDelivered = async () => {
+  if (!order.value) return
+  const ok = await confirm.ask('배송완료로 변경할까요?', {
+    description: '택배사 자동 갱신을 기다리지 않고 주문을 배송완료 상태로 강제 변경합니다. (주의: 송장 추적 상태와 일시적으로 어긋날 수 있습니다.)',
+    confirmText: '배송완료',
+    tone: 'danger'
+  })
+  if (!ok) return
+  markingDelivered.value = true
+  try {
+    await orderApi.changeStatuses({ orderIds: [id], status: 'DELIVERED' })
+    toast.success('배송완료로 변경했습니다.')
+    await load()
+  } catch (e) {
+    toast.error(e, '상태 변경 실패')
+  } finally { markingDelivered.value = false }
+}
+
+const markingPreparing = ref(false)
+const markPreparing = async () => {
+  if (!order.value) return
+  const ok = await confirm.ask('상품 준비중으로 변경할까요?', {
+    description: '주문 상태가 결제완료 → 상품준비중으로 변경됩니다. 이후 송장을 등록할 수 있습니다.',
+    confirmText: '변경'
+  })
+  if (!ok) return
+  markingPreparing.value = true
+  try {
+    await orderApi.changeStatuses({ orderIds: [id], status: 'PREPARING' })
+    toast.success('상품준비중으로 변경했습니다.')
+    await load()
+  } catch (e) {
+    toast.error(e, '상태 변경 실패')
+  } finally { markingPreparing.value = false }
+}
 
 const shipmentOpen = ref(false)
 const carriers = ref<Carrier[]>([])
@@ -96,8 +143,26 @@ const addressLine = (s: OrderShipping | undefined) =>
     >
       <template #actions>
         <StatusBadge v-if="order" :status="order.status" />
-        <Button v-if="order" variant="outline" size="sm" @click="openShipment">
+        <Button
+          v-if="canMarkPreparing"
+          variant="outline"
+          size="sm"
+          :disabled="markingPreparing"
+          @click="markPreparing"
+        >
+          <Icon name="lucide:package-check" size="14" class="mr-1" /> 상품 준비중으로 변경
+        </Button>
+        <Button v-if="canCreateShipment" variant="outline" size="sm" @click="openShipment">
           <Icon name="lucide:truck" size="14" class="mr-1" /> 송장 등록
+        </Button>
+        <Button
+          v-if="canMarkDelivered"
+          variant="outline"
+          size="sm"
+          :disabled="markingDelivered"
+          @click="markDelivered"
+        >
+          <Icon name="lucide:check-circle-2" size="14" class="mr-1" /> 배송완료 처리
         </Button>
         <Button
           v-if="order && (order.status === 'SHIPPING' || order.status === 'DELIVERED')"

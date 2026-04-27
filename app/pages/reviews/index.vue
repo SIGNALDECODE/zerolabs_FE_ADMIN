@@ -7,7 +7,6 @@ definePageMeta({ layout: 'default' })
 
 const reviewApi = useAdminReview()
 const router = useRouter()
-const toast = useToast()
 
 const ALL = 'ALL'
 
@@ -30,8 +29,7 @@ const columns = [
   { key: 'userName', label: '작성자' },
   { key: 'helpfulCount', label: '추천', width: '64px', align: 'center' as const },
   { key: 'adminReply', label: '답변', width: '64px', align: 'center' as const },
-  { key: 'createdAt', label: '작성일' },
-  { key: 'isVisible', label: '노출', width: '80px', align: 'center' as const }
+  { key: 'createdAt', label: '작성일' }
 ]
 
 const load = async () => {
@@ -44,7 +42,7 @@ const load = async () => {
       size: filters.size
     })
     reviews.value = data?.content ?? []
-    total.value = data?.totalElements ?? 0
+    total.value = data?.total_elements ?? 0
   } finally {
     loading.value = false
   }
@@ -54,15 +52,6 @@ const search = () => { filters.page = 1; load() }
 const goPage = (p: number) => { filters.page = p; load() }
 
 watchDebounced(() => filters.keyword, search, { debounce: 400 })
-
-const toggleVisibility = async (r: Review) => {
-  const visible = !(r.isVisible ?? true)
-  try {
-    await reviewApi.toggleVisibility({ reviewId: r.id, visible })
-    toast.success(visible ? '리뷰를 노출합니다.' : '리뷰를 숨겼습니다.')
-    await load()
-  } catch (e) { toast.error(e, '변경 실패') }
-}
 
 onMounted(load)
 </script>
@@ -125,19 +114,6 @@ onMounted(load)
       </template>
       <template #cell-createdAt="{ row }">
         <span class="text-muted-foreground text-xs">{{ formatDate(row.createdAt) }}</span>
-      </template>
-      <template #cell-isVisible="{ row }">
-        <Button
-          variant="outline"
-          size="sm"
-          class="h-7 px-2"
-          @click.stop="toggleVisibility(row)"
-        >
-          <Icon
-            :name="(row.isVisible ?? true) ? 'lucide:eye' : 'lucide:eye-off'"
-            size="12"
-          />
-        </Button>
       </template>
     </DataTable>
 

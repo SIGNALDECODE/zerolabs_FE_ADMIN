@@ -30,7 +30,7 @@ export type ClaimReasonType =
 
 export type RefundStatus = 'PENDING' | 'COMPLETED' | 'FAILED'
 
-export type InquiryStatus = 'WAITING' | 'ANSWERED'
+export type InquiryStatus = 'PENDING' | 'ANSWERED' | 'CLOSED'
 export type QnaStatus = 'PENDING' | 'ANSWERED' | 'CLOSED'
 export type NoticeType = 'NOTICE' | 'INSPECTION' | 'GUIDELINES' | 'EVENT'
 export type NoticeStatus = 'ACTIVE' | 'INACTIVE'

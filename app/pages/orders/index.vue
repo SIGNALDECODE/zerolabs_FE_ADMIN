@@ -64,7 +64,7 @@ const loadOrders = async () => {
       size: filters.size
     })
     orders.value = data?.content || []
-    totalElements.value = data?.totalElements || 0
+    totalElements.value = data?.total_elements || 0
     selectedIds.value = []
   } finally {
     loading.value = false

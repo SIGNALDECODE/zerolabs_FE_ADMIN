@@ -38,7 +38,7 @@ const load = async () => {
       size: filters.size
     })
     products.value = data?.content || []
-    totalElements.value = data?.totalElements || 0
+    totalElements.value = data?.total_elements || 0
   } finally {
     loading.value = false
   }

@@ -43,8 +43,15 @@ const columns = [
 ]
 
 const statusLabels: Record<string, string> = {
-  WAITING: '대기', ANSWERED: '답변완료'
+  PENDING: '대기', ANSWERED: '답변완료', CLOSED: '종료'
 }
+
+const typeLabelMap = computed<Record<string, string>>(() =>
+  types.value.reduce((acc, t) => {
+    acc[typeCode(t)] = typeLabel(t)
+    return acc
+  }, {} as Record<string, string>)
+)
 
 const load = async () => {
   loading.value = true
@@ -57,7 +64,7 @@ const load = async () => {
       size: filters.size
     })
     inquiries.value = data?.content ?? []
-    total.value = data?.totalElements ?? 0
+    total.value = data?.total_elements ?? 0
     selectedIds.value = []
   } finally { loading.value = false }
 }
@@ -126,8 +133,9 @@ onMounted(() => {
         </SelectTrigger>
         <SelectContent>
           <SelectItem :value="ALL">전체 상태</SelectItem>
-          <SelectItem value="WAITING">대기</SelectItem>
+          <SelectItem value="PENDING">대기</SelectItem>
           <SelectItem value="ANSWERED">답변완료</SelectItem>
+          <SelectItem value="CLOSED">종료</SelectItem>
         </SelectContent>
       </Select>
       <Select v-model="filters.inquiryType">
@@ -165,7 +173,7 @@ onMounted(() => {
         <span class="text-muted-foreground text-xs">{{ row.id }}</span>
       </template>
       <template #cell-inquiryType="{ row }">
-        <span class="text-muted-foreground text-sm">{{ row.inquiryType }}</span>
+        <span class="text-muted-foreground text-sm">{{ typeLabelMap[row.inquiryType] ?? row.inquiryType }}</span>
       </template>
       <template #cell-title="{ row }">
         <span class="font-medium max-w-md truncate block">{{ row.title }}</span>

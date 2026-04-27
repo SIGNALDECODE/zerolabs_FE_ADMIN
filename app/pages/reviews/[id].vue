@@ -21,11 +21,29 @@ const load = async () => {
   } finally { loading.value = false }
 }
 
+const confirm = useConfirm()
+const toast = useToast()
+
 const toggleVisibility = async () => {
+  const willHide = review.value?.isVisible ?? true
+  const ok = await confirm.ask(
+    willHide ? '이 리뷰를 숨길까요?' : '이 리뷰를 다시 노출할까요?',
+    {
+      description: willHide
+        ? '숨김 처리된 리뷰는 소비자몰에서 보이지 않습니다.'
+        : '노출 처리되면 소비자몰에서 다시 보입니다.',
+      confirmText: willHide ? '숨기기' : '노출',
+      tone: willHide ? 'danger' : undefined
+    }
+  )
+  if (!ok) return
   saving.value = true
   try {
-    await reviewApi.toggleVisibility({ reviewId: id, visible: !(review.value?.isVisible ?? true) })
+    await reviewApi.toggleVisibility([id])
+    toast.success(willHide ? '리뷰를 숨겼습니다.' : '리뷰를 노출합니다.')
     await load()
+  } catch (e) {
+    toast.error(e, '변경 실패')
   } finally { saving.value = false }
 }
 

@@ -52,7 +52,14 @@ const remove = async () => {
   }
 }
 
-const statusLabels: Record<string, string> = { WAITING: '대기', ANSWERED: '답변완료' }
+const statusLabels: Record<string, string> = {
+  PENDING: '대기', ANSWERED: '답변완료', CLOSED: '종료'
+}
+
+const inquiryTypeLabels: Record<string, string> = {
+  SHIPPING: '배송', EXCHANGE: '교환', REFUND: '환불',
+  PAYMENT: '결제', MEMBERSHIP: '회원', ETC: '기타'
+}
 
 onMounted(load)
 useHead({ title: () => `${inquiry.value?.title ?? '문의'} | ZeroLabs Admin` })
@@ -80,7 +87,7 @@ useHead({ title: () => `${inquiry.value?.title ?? '문의'} | ZeroLabs Admin` })
     <div v-else-if="inquiry" class="space-y-6">
       <DetailSection title="문의 내용">
         <DetailField label="작성자" :value="inquiry.userName ? `${inquiry.userName} (#${inquiry.userId})` : `#${inquiry.userId}`" />
-        <DetailField label="유형" :value="inquiry.inquiryType" />
+        <DetailField label="유형" :value="inquiryTypeLabels[inquiry.inquiryType] ?? inquiry.inquiryType" />
         <DetailField label="주문번호" :value="inquiry.orderNumber" mono />
         <DetailField label="작성일" :value="formatDate(inquiry.createdAt)" />
         <DetailField label="본문" full>

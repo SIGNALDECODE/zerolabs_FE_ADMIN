@@ -32,8 +32,6 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const imageApi = useAdminImage()
 const toast = useToast()
-const prompt = usePrompt()
-const confirm = useConfirm()
 
 const uploading = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -120,7 +118,14 @@ const uploadAndInsert = async (file: File) => {
   uploading.value = true
   try {
     const res = await imageApi.upload(file)
-    inst.chain().focus().setImage({ src: res.url, alt: file.name }).run()
+    inst
+      .chain()
+      .focus()
+      .insertContent([
+        { type: 'image', attrs: { src: res.url, alt: file.name } },
+        { type: 'paragraph' }
+      ])
+      .run()
   } catch (e) {
     toast.error(e, '이미지 업로드 실패')
   } finally {
@@ -138,26 +143,6 @@ const onImagePicked = async (e: Event) => {
   const file = input.files?.[0]
   if (file) await uploadAndInsert(file)
   input.value = ''
-}
-
-const setLink = async () => {
-  const inst = editor.value
-  if (!inst) return
-  if (inst.isActive('link')) {
-    const ok = await confirm.ask('링크 제거', {
-      description: '현재 범위의 링크를 제거합니다.',
-      confirmText: '제거'
-    })
-    if (ok) inst.chain().focus().extendMarkRange('link').unsetLink().run()
-    return
-  }
-  const prev = (inst.getAttributes('link').href as string | undefined) ?? ''
-  const url = await prompt.ask('링크 주소', {
-    placeholder: 'https://example.com',
-    defaultValue: prev
-  })
-  if (!url) return
-  inst.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
 const isActive = (name: string, attrs?: Record<string, unknown>) =>
@@ -271,14 +256,6 @@ const isActive = (name: string, attrs?: Record<string, unknown>) =>
 
       <Separator orientation="vertical" class="mx-1 h-5" />
 
-      <Button
-        type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
-        :class="isActive('link') ? 'bg-accent text-accent-foreground' : ''"
-        title="링크"
-        @click="setLink"
-      >
-        <Icon name="lucide:link" size="14" />
-      </Button>
       <Button
         type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
         :disabled="uploading"

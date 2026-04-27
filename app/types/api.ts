@@ -18,7 +18,7 @@ export interface PageResponse<T> {
   content: T[]
   page: number
   size: number
-  totalElements: number
+  total_elements: number
 }
 
 export class ApiError extends Error {

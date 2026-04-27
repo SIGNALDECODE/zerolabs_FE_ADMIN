@@ -71,7 +71,7 @@ useHead({ title: () => `${qna.value?.title ?? 'Q&A'} | ZeroLabs Admin` })
           :label="qna.isAnswered ? '답변완료' : '미답변'"
           :status="qna.isAnswered ? 'ANSWERED' : 'WAITING'"
         />
-        <Badge v-if="qna?.isSecret" variant="outline">
+        <Badge v-if="(qna?.isSecret ?? (qna as any)?.secret) === true" variant="outline">
           <Icon name="lucide:lock" size="12" class="mr-1" /> 비밀글
         </Badge>
         <Button variant="outline" size="sm" class="text-destructive" @click="remove">
@@ -85,7 +85,7 @@ useHead({ title: () => `${qna.value?.title ?? 'Q&A'} | ZeroLabs Admin` })
     <div v-else-if="qna" class="space-y-6">
       <DetailSection title="질문">
         <DetailField label="작성일" :value="formatDate(qna.createdAt)" />
-        <DetailField label="비밀글" :value="qna.isSecret ? '예' : '아니오'" />
+        <DetailField label="비밀글" :value="(qna.isSecret ?? (qna as any).secret) === true ? '예' : '아니오'" />
         <DetailField label="질문" full>
           <div class="whitespace-pre-wrap">{{ qna.question }}</div>
         </DetailField>
