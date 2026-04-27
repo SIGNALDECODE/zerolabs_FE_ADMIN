@@ -10,11 +10,13 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // SSR 전용 (내부 호스트 사용 가능). 미설정 시 public.apiBase 로 폴백.
+    // dev 우회용 프록시 타겟 (server/api/[...].ts 가 사용). prod 직통이면 비워두면 됨.
     apiBaseUrl: process.env.API_BASE_URL || '',
     public: {
-      // CSR/SSR 공통 — 브라우저에서 직접 백엔드로 호출.
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:9092/api/v1'
+      // CSR 호출 base.
+      // - dev: '/api' (Nuxt 서버 프록시 경유) — cross-site/HTTP BE 우회
+      // - prod: 절대 URL (https://api.xxx.com/api/v1) — BE 직통
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
     }
   },
 

@@ -27,8 +27,8 @@ const asFetchError = (err: unknown): NuxtFetchError =>
 
 /**
  * 백엔드 admin-api 호출용 컴포저블.
- * - CSR/SSR 모두 백엔드 절대 URL 로 직접 호출 (Nuxt 서버 프록시 미경유)
- *   · SSR 은 apiBaseUrl(내부 호스트) 우선, 없으면 public.apiBase 로 폴백
+ * - CSR: public.apiBase 로 호출 — '/api' 면 Nuxt 프록시 경유(dev), 절대 URL 이면 BE 직통(prod)
+ * - SSR: apiBaseUrl 우선(내부 호스트). 비어있고 public.apiBase 가 절대 URL 이면 그것을 사용.
  * - 401 + AUTH_016 → /auth/refresh 자동 재시도 (1회)
  * - 401 (그 외) → 토스트 알림 + /login 리다이렉트
  *   · /login 페이지에서 발생한 에러는 페이지가 자체 처리하도록 스킵
@@ -39,10 +39,13 @@ export const useApi = () => {
   const cookieHeaders = import.meta.server ? useRequestHeaders(['cookie']) : {}
 
   const buildUrl = (endpoint: string) => {
-    const base = import.meta.server
-      ? (config.apiBaseUrl || config.public.apiBase)
-      : config.public.apiBase
-    return `${base}${endpoint}`
+    if (import.meta.server) {
+      // SSR 은 server-side 라 same-origin 프록시가 의미 없음. 절대 URL 필요.
+      const base = config.apiBaseUrl
+        || (config.public.apiBase.startsWith('http') ? config.public.apiBase : '')
+      return `${base}${endpoint}`
+    }
+    return `${config.public.apiBase}${endpoint}`
   }
 
   const buildHeaders = (options: FetchOptions) => {
