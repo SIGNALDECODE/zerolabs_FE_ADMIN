@@ -388,8 +388,8 @@ onMounted(load)
               </div>
             </div>
             <div>
-              <Label class="mb-1.5 block text-xs">본문 (HTML 가능) <span class="text-destructive">*</span></Label>
-              <Textarea v-model="term.content" rows="6" class="font-mono text-xs" />
+              <Label class="mb-1.5 block text-xs">본문 <span class="text-destructive">*</span></Label>
+              <RichTextEditor v-model="term.content" min-height="240px" placeholder="약관 본문을 입력하세요…" />
             </div>
             <div class="flex items-center gap-6 text-xs">
               <label class="flex items-center gap-2 cursor-pointer">
@@ -476,7 +476,7 @@ onMounted(load)
             <span class="ml-auto">ID #{{ t.id }}</span>
           </div>
           <div class="text-sm font-medium">{{ t.title }}</div>
-          <pre class="text-xs whitespace-pre-wrap font-sans text-muted-foreground line-clamp-6">{{ t.content }}</pre>
+          <div class="prose prose-sm max-w-none text-muted-foreground line-clamp-6" v-html="t.content" />
         </div>
       </div>
     </div>

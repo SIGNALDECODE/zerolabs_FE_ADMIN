@@ -147,6 +147,29 @@ const onImagePicked = async (e: Event) => {
 
 const isActive = (name: string, attrs?: Record<string, unknown>) =>
   editor.value?.isActive(name, attrs) ?? false
+
+// HTML 소스 직접 편집 모드.
+// - 진입 시 현재 에디터 HTML 을 textarea 로 가져옴
+// - 입력 중에는 v-model 로 부모에 즉시 반영
+// - 끄면 textarea 값을 에디터로 setContent → WYSIWYG 동기화
+const htmlMode = ref(false)
+const htmlDraft = ref('')
+
+const enterHtmlMode = () => {
+  const inst = editor.value
+  htmlDraft.value = inst && !inst.isEmpty ? inst.getHTML() : (props.modelValue || '')
+  htmlMode.value = true
+}
+const exitHtmlMode = () => {
+  editor.value?.commands.setContent(htmlDraft.value || '', { emitUpdate: false })
+  emit('update:modelValue', htmlDraft.value || '')
+  htmlMode.value = false
+}
+const onHtmlInput = (e: Event) => {
+  const v = (e.target as HTMLTextAreaElement).value
+  htmlDraft.value = v
+  emit('update:modelValue', v)
+}
 </script>
 
 <template>
@@ -285,12 +308,33 @@ const isActive = (name: string, attrs?: Record<string, unknown>) =>
         <Icon name="lucide:redo-2" size="14" />
       </Button>
 
+      <Separator orientation="vertical" class="mx-1 h-5" />
+
+      <Button
+        type="button" variant="ghost" size="sm" class="h-8 px-2 text-[11px]"
+        :class="htmlMode ? 'bg-accent text-accent-foreground' : ''"
+        title="HTML 소스 직접 편집"
+        @click="htmlMode ? exitHtmlMode() : enterHtmlMode()"
+      >
+        <Icon name="lucide:code-2" size="14" class="mr-1" /> HTML
+      </Button>
+
       <div class="ml-auto pr-1 text-[10px] text-muted-foreground">
-        이미지는 드래그 · 붙여넣기도 됩니다
+        {{ htmlMode ? 'HTML 직접 편집 중' : '이미지는 드래그 · 붙여넣기도 됩니다' }}
       </div>
     </div>
 
+    <textarea
+      v-if="htmlMode"
+      :value="htmlDraft"
+      class="w-full px-4 py-3 font-mono text-xs leading-relaxed outline-none resize-y bg-background"
+      :style="{ minHeight }"
+      spellcheck="false"
+      placeholder="HTML 을 그대로 붙여넣거나 편집하세요…"
+      @input="onHtmlInput"
+    />
     <EditorContent
+      v-show="!htmlMode"
       :editor="editor"
       class="px-4 py-3"
       :style="{ minHeight }"

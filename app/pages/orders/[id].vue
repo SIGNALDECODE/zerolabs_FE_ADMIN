@@ -16,8 +16,11 @@ const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 
 const SHIPMENT_ALLOWED_STATUSES = ['PREPARING', 'SHIPPING', 'PARTIAL_DELIVERED'] as const
+// 단일배송 정책: 송장은 주문당 1건만 등록. 이미 등록되어 있으면 버튼 비노출.
 const canCreateShipment = computed(() =>
-  !!order.value && SHIPMENT_ALLOWED_STATUSES.includes(order.value.status as typeof SHIPMENT_ALLOWED_STATUSES[number])
+  !!order.value
+  && SHIPMENT_ALLOWED_STATUSES.includes(order.value.status as typeof SHIPMENT_ALLOWED_STATUSES[number])
+  && !(order.value.shipments?.length)
 )
 const canMarkPreparing = computed(() => order.value?.status === 'PAID')
 const canMarkDelivered = computed(() =>
@@ -67,11 +70,9 @@ const creatingShipment = ref(false)
 const shipmentForm = reactive<{
   carrierId: number | null
   trackingNumber: string
-  items: { orderItemId: number, quantity: number, productName?: string, max?: number, selected: boolean }[]
 }>({
   carrierId: null,
-  trackingNumber: '',
-  items: []
+  trackingNumber: ''
 })
 
 const shipmentCarrierIdStr = computed<string | undefined>({
@@ -95,27 +96,31 @@ const loadCarriers = async () => {
 const openShipment = () => {
   shipmentForm.carrierId = null
   shipmentForm.trackingNumber = ''
-  shipmentForm.items = (order.value?.items ?? []).map((it: OrderItem) => ({
-    orderItemId: it.orderItemId,
-    productName: [it.productName, it.variantName].filter(Boolean).join(' / '),
-    quantity: it.quantity ?? 1,
-    max: it.quantity ?? 1,
-    selected: true
-  }))
   shipmentOpen.value = true
 }
 
 const submitShipment = async () => {
   if (!shipmentForm.carrierId) return toast.error('택배사를 선택하세요.')
   if (!shipmentForm.trackingNumber.trim()) return toast.error('송장번호를 입력하세요.')
-  const picked = shipmentForm.items.filter(i => i.selected && i.quantity > 0)
-  if (!picked.length) return toast.error('배송 상품을 최소 1개 선택하세요.')
+  // 단일배송: 주문의 모든 품목을 전체 수량으로 한 번에 등록.
+  const items = (order.value?.items ?? []).map((it: OrderItem) => ({
+    orderItemId: it.orderItemId,
+    quantity: it.quantity ?? 1
+  }))
+  if (!items.length) return toast.error('배송할 상품이 없습니다.')
+  const carrierName = carriers.value.find(c => c.id === shipmentForm.carrierId)?.name ?? '-'
+  const ok = await confirm.ask('송장을 등록할까요?', {
+    description: `택배사: ${carrierName}\n송장번호: ${shipmentForm.trackingNumber.trim()}\n\n⚠ 한 번 등록한 송장은 수정·삭제할 수 없습니다. 정확한지 다시 확인하세요.`,
+    confirmText: '등록',
+    tone: 'danger'
+  })
+  if (!ok) return
   creatingShipment.value = true
   try {
     await deliveryApi.createShipment(id, {
       carrierId: shipmentForm.carrierId,
       trackingNumber: shipmentForm.trackingNumber,
-      items: picked.map(i => ({ orderItemId: i.orderItemId, quantity: Number(i.quantity) }))
+      items
     })
     toast.success('송장을 등록했습니다.')
     shipmentOpen.value = false
@@ -221,17 +226,17 @@ const addressLine = (s: OrderShipping | undefined) =>
             </TableHeader>
             <TableBody>
               <TableRow v-for="item in order.items" :key="item.orderItemId">
-                <TableCell>
+                <TableCell class="max-w-0">
                   <div class="flex items-center gap-2 min-w-0">
                     <img
                       v-if="item.imageUrl"
                       :src="item.imageUrl"
                       class="h-8 w-8 rounded border object-cover shrink-0"
                     />
-                    <span class="font-medium truncate">{{ item.productName }}</span>
+                    <span class="font-medium truncate" :title="item.productName">{{ item.productName }}</span>
                   </div>
                 </TableCell>
-                <TableCell>{{ item.variantName ?? '-' }}</TableCell>
+                <TableCell class="max-w-[200px] truncate" :title="item.variantName ?? ''">{{ item.variantName ?? '-' }}</TableCell>
                 <TableCell class="text-right">{{ item.quantity }}</TableCell>
                 <TableCell class="text-right">{{ formatCurrency(item.subtotal) }}</TableCell>
                 <TableCell><StatusBadge :status="item.orderItemStatus" /></TableCell>
@@ -283,55 +288,36 @@ const addressLine = (s: OrderShipping | undefined) =>
 
     <!-- 송장 등록 Dialog -->
     <Dialog v-model:open="shipmentOpen">
-      <DialogContent class="max-w-2xl">
+      <DialogContent class="max-w-md grid-cols-1">
+        <div class="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive">
+          <p class="font-semibold mb-0.5">⚠ 등록 후 수정·삭제 불가</p>
+          <p class="text-destructive/90">
+            한 번 등록한 송장은 변경할 수 없습니다. 택배사와 송장번호를 반드시 다시 확인한 후 등록하세요.
+          </p>
+        </div>
+
         <DialogHeader>
           <DialogTitle>송장 등록</DialogTitle>
           <DialogDescription>
-            분할 배송 시 상품별 수량을 조정해 부분 송장을 등록할 수 있습니다.
+            주문의 전체 품목 ({{ order?.items?.length ?? 0 }}개) 을 한 건의 송장으로 등록합니다.
           </DialogDescription>
         </DialogHeader>
 
-        <div class="space-y-4 py-2">
-          <div class="grid gap-3 grid-cols-2">
-            <div>
-              <Label class="mb-1.5 block text-xs">택배사 <span class="text-destructive">*</span></Label>
-              <Select v-model="shipmentCarrierIdStr">
-                <SelectTrigger class="w-full">
-                  <SelectValue placeholder="선택…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="c in carriers" :key="c.id" :value="String(c.id)">{{ c.name }}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label class="mb-1.5 block text-xs">송장번호 <span class="text-destructive">*</span></Label>
-              <Input v-model="shipmentForm.trackingNumber" class="font-mono" placeholder="송장번호 입력" />
-            </div>
-          </div>
-
+        <div class="space-y-4 py-2 min-w-0">
           <div>
-            <Label class="mb-2 block text-xs">배송 상품</Label>
-            <div class="border rounded-md divide-y max-h-64 overflow-y-auto">
-              <label
-                v-for="item in shipmentForm.items"
-                :key="item.orderItemId"
-                class="flex items-center gap-3 p-2.5 hover:bg-muted/30 cursor-pointer text-sm"
-              >
-                <input v-model="item.selected" type="checkbox" class="h-4 w-4" />
-                <span class="flex-1 truncate">{{ item.productName }}</span>
-                <Input
-                  v-model="item.quantity"
-                  type="number"
-                  :min="1"
-                  :max="item.max"
-                  class="h-8 w-20 text-right"
-                  :disabled="!item.selected"
-                  @click.stop
-                />
-                <span class="text-xs text-muted-foreground w-12 text-right">/ {{ item.max }}</span>
-              </label>
-            </div>
+            <Label class="mb-1.5 block text-xs">택배사 <span class="text-destructive">*</span></Label>
+            <Select v-model="shipmentCarrierIdStr">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="선택…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="c in carriers" :key="c.id" :value="String(c.id)">{{ c.name }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label class="mb-1.5 block text-xs">송장번호 <span class="text-destructive">*</span></Label>
+            <Input v-model="shipmentForm.trackingNumber" class="font-mono" placeholder="송장번호 입력" />
           </div>
         </div>
 

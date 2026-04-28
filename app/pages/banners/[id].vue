@@ -172,6 +172,15 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
               <li>• 중요한 텍스트·피사체는 중앙 <span class="font-medium text-foreground">70%</span> 영역에 배치 <span class="text-muted-foreground/80">— 모니터 너비에 따라 좌우가 미세하게 잘릴 수 있습니다.</span></li>
             </ul>
           </div>
+          <div v-else-if="form.position === 'HALF'" class="mb-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+            <p class="mb-1 font-medium text-foreground">PC 하프 배너 권장 사양</p>
+            <ul class="space-y-0.5">
+              <li>• 권장 크기: <span class="font-medium text-foreground">686 × 272 px</span> (가로 비율 343:136)</li>
+              <li>• 고화질 권장: 1372 × 544 px <span class="text-muted-foreground/80">— Retina 대응 2배수</span></li>
+              <li>• 파일 형식: WebP · JPG · PNG</li>
+              <li>• 중요한 텍스트·피사체는 중앙 <span class="font-medium text-foreground">80%</span> 영역에 배치</li>
+            </ul>
+          </div>
           <ImageUploadField v-model="form.imageUrl" preview-class="max-h-48 w-full" />
         </div>
 
@@ -187,6 +196,13 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
               <li>• 최소 크기: 375 × 460 px</li>
               <li>• 파일 형식: WebP · JPG · PNG</li>
               <li>• 중요한 텍스트·피사체는 중앙 <span class="font-medium text-foreground">60%</span> 영역에 배치 <span class="text-muted-foreground/80">— 기기 화면 비율에 따라 좌우가 미세하게 잘릴 수 있습니다.</span></li>
+            </ul>
+          </div>
+          <div v-else-if="form.position === 'HALF'" class="mb-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+            <p class="mb-1 font-medium text-foreground">모바일 하프 배너 권장 사양</p>
+            <ul class="space-y-0.5">
+              <li>• PC 와 동일한 <span class="font-medium text-foreground">686 × 272 px</span> 비율 권장</li>
+              <li>• 미입력 시 PC 이미지를 그대로 사용</li>
             </ul>
           </div>
           <ImageUploadField v-model="form.mobileImageUrl" preview-class="max-h-48" />

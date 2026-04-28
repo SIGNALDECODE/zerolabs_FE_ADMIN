@@ -25,7 +25,6 @@ const TONE_MAP: Record<string, Props['tone']> = {
   ACTIVE: 'success',
   ON_SALE: 'success',
   IN_STOCK: 'success',
-  PAID: 'success',
   DELIVERED: 'success',
   COMPLETED: 'success',
   APPROVED: 'success',
@@ -41,10 +40,13 @@ const TONE_MAP: Record<string, Props['tone']> = {
   STOPPED: 'warning',
 
   // 정보 · 중간 단계
-  SHIPPING: 'info',
+  PAID: 'info',
   CONFIRMED: 'info',
   BACKORDER: 'info',
   DRAFT: 'info',
+
+  // 진행 중 · 외부 처리 단계
+  SHIPPING: 'scheduled',
 
   // 예약
   SCHEDULED: 'scheduled',
