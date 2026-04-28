@@ -13,3 +13,5 @@ dist
 # Claude Code 로컬 설정 · 자동 메모리 (개인 머신 전용)
 .claude/
 memory/
+
+# IDE 설정
