@@ -44,6 +44,12 @@ const cloneTerm = (t: TermsItem): TermsItem => ({
   publishedAt: t.publishedAt
 })
 
+// idx 가 splice 시 흔들리므로, form.terms 와 1:1 매칭되는 안정 키 배열을 따로 관리.
+const termKeys = ref<string[]>([])
+let tempIdSeq = 0
+const newTempKey = () => `new-${++tempIdSeq}`
+const editExpanded = ref<Set<string>>(new Set())
+
 const resetForm = () => {
   if (!policy.value) return
   Object.assign(form.order, policy.value.order ?? {})
@@ -51,6 +57,8 @@ const resetForm = () => {
   Object.assign(form.product, policy.value.product ?? {})
   Object.assign(form.returnPolicy, policy.value.returnPolicy ?? {})
   form.terms = (policy.value.terms ?? []).map(cloneTerm)
+  termKeys.value = form.terms.map((t) => (t.id ? `id-${t.id}` : newTempKey()))
+  editExpanded.value = new Set()
 }
 
 const addTerm = () => {
@@ -63,11 +71,44 @@ const addTerm = () => {
     isRequired: false,
     isActive: true
   })
+  const key = newTempKey()
+  termKeys.value.push(key)
+  editExpanded.value = new Set(editExpanded.value).add(key)
 }
 
 const removeTerm = (idx: number) => {
+  const key = termKeys.value[idx]
   form.terms.splice(idx, 1)
+  termKeys.value.splice(idx, 1)
+  if (key && editExpanded.value.has(key)) {
+    const next = new Set(editExpanded.value)
+    next.delete(key)
+    editExpanded.value = next
+  }
 }
+
+const toggleEditExpanded = (key: string) => {
+  const next = new Set(editExpanded.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  editExpanded.value = next
+}
+const editExpandAll = () => { editExpanded.value = new Set(termKeys.value) }
+const editCollapseAll = () => { editExpanded.value = new Set() }
+
+const viewExpanded = ref<Set<number>>(new Set())
+const toggleViewExpanded = (id: number) => {
+  const next = new Set(viewExpanded.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  viewExpanded.value = next
+}
+const viewExpandAll = () => {
+  viewExpanded.value = new Set(
+    (policy.value?.terms ?? []).map((t) => t.id).filter((v): v is number => v != null)
+  )
+}
+const viewCollapseAll = () => { viewExpanded.value = new Set() }
 
 const load = async () => {
   loading.value = true
@@ -351,69 +392,110 @@ onMounted(load)
               삭제는 백엔드 API 가 없어 "활성" 토글로 비활성화.
             </CardDescription>
           </div>
-          <Button type="button" size="sm" variant="outline" @click="addTerm">
-            <Icon name="lucide:plus" size="14" class="mr-1" /> 약관 추가
-          </Button>
+          <div class="flex items-center gap-1">
+            <Button
+              v-if="form.terms.length"
+              type="button"
+              size="sm"
+              variant="ghost"
+              @click="editExpanded.size === termKeys.length ? editCollapseAll() : editExpandAll()"
+            >
+              <Icon
+                :name="editExpanded.size === termKeys.length ? 'lucide:chevrons-down-up' : 'lucide:chevrons-up-down'"
+                size="14"
+                class="mr-1"
+              />
+              {{ editExpanded.size === termKeys.length ? '모두 접기' : '모두 펴기' }}
+            </Button>
+            <Button type="button" size="sm" variant="outline" @click="addTerm">
+              <Icon name="lucide:plus" size="14" class="mr-1" /> 약관 추가
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent class="space-y-4">
+        <CardContent class="space-y-3">
           <div v-if="!form.terms.length" class="text-center text-muted-foreground text-sm py-6">
             등록된 약관이 없습니다.
           </div>
           <div
             v-for="(term, idx) in form.terms"
-            :key="term.id ?? `new-${idx}`"
-            class="border rounded-md p-4 space-y-3"
+            :key="termKeys[idx] ?? `idx-${idx}`"
+            class="border rounded-md overflow-hidden"
+            :class="editExpanded.has(termKeys[idx] ?? '') ? 'border-primary/40 ring-1 ring-primary/10' : ''"
           >
-            <div class="grid gap-3 grid-cols-1 sm:grid-cols-[180px_1fr_120px]">
-              <div>
-                <Label class="mb-1.5 block text-xs">유형</Label>
-                <Select v-model="term.policyType">
-                  <SelectTrigger class="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="[v, label] in POLICY_TYPE_OPTIONS" :key="v" :value="v">
-                      {{ label }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+            <button
+              type="button"
+              class="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/40 transition"
+              @click="toggleEditExpanded(termKeys[idx] ?? '')"
+            >
+              <Icon
+                :name="editExpanded.has(termKeys[idx] ?? '') ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+                size="16"
+                class="shrink-0 text-muted-foreground"
+              />
+              <span class="text-xs font-medium text-foreground shrink-0">
+                {{ POLICY_TYPE_LABEL[term.policyType] ?? term.policyType }}
+              </span>
+              <span class="text-xs text-muted-foreground shrink-0">v{{ term.version || '1.0' }}</span>
+              <span class="text-sm truncate" :class="term.title ? '' : 'text-muted-foreground italic'">
+                {{ term.title || '(제목 없음)' }}
+              </span>
+              <span v-if="term.isRequired" class="ml-auto px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] shrink-0">필수</span>
+              <span v-if="term.isActive === false" class="px-1.5 py-0.5 rounded bg-muted text-[11px] shrink-0">비활성</span>
+              <span class="text-[11px] text-muted-foreground shrink-0" :class="term.isRequired || term.isActive === false ? '' : 'ml-auto'">
+                {{ term.id ? `#${term.id}` : '신규' }}
+              </span>
+            </button>
+            <div v-show="editExpanded.has(termKeys[idx] ?? '')" class="border-t p-4 space-y-3">
+              <div class="grid gap-3 grid-cols-1 sm:grid-cols-[180px_1fr_120px]">
+                <div>
+                  <Label class="mb-1.5 block text-xs">유형</Label>
+                  <Select v-model="term.policyType">
+                    <SelectTrigger class="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="[v, label] in POLICY_TYPE_OPTIONS" :key="v" :value="v">
+                        {{ label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label class="mb-1.5 block text-xs">제목 <span class="text-destructive">*</span></Label>
+                  <Input v-model="term.title" maxlength="200" placeholder="이용약관 v1.0" />
+                </div>
+                <div>
+                  <Label class="mb-1.5 block text-xs">버전</Label>
+                  <Input v-model="term.version" maxlength="20" placeholder="1.0" />
+                </div>
               </div>
               <div>
-                <Label class="mb-1.5 block text-xs">제목 <span class="text-destructive">*</span></Label>
-                <Input v-model="term.title" maxlength="200" placeholder="이용약관 v1.0" />
+                <Label class="mb-1.5 block text-xs">본문 <span class="text-destructive">*</span></Label>
+                <RichTextEditor v-model="term.content" min-height="240px" placeholder="약관 본문을 입력하세요…" />
               </div>
-              <div>
-                <Label class="mb-1.5 block text-xs">버전</Label>
-                <Input v-model="term.version" maxlength="20" placeholder="1.0" />
+              <div class="flex items-center gap-6 text-xs">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input v-model="term.isRequired" type="checkbox" class="h-4 w-4">
+                  <span>필수 동의</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input v-model="term.isActive" type="checkbox" class="h-4 w-4">
+                  <span>활성</span>
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  class="ml-auto text-destructive hover:text-destructive"
+                  @click="removeTerm(idx)"
+                >
+                  <Icon name="lucide:trash-2" size="14" class="mr-1" /> 목록에서 제거
+                </Button>
               </div>
+              <p v-if="term.id" class="text-[11px] text-muted-foreground">
+                ⚠ 목록에서 제거해도 백엔드에서 삭제되지 않습니다. 비공개 처리하려면 "활성"을 해제하세요.
+              </p>
             </div>
-            <div>
-              <Label class="mb-1.5 block text-xs">본문 <span class="text-destructive">*</span></Label>
-              <RichTextEditor v-model="term.content" min-height="240px" placeholder="약관 본문을 입력하세요…" />
-            </div>
-            <div class="flex items-center gap-6 text-xs">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input v-model="term.isRequired" type="checkbox" class="h-4 w-4">
-                <span>필수 동의</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input v-model="term.isActive" type="checkbox" class="h-4 w-4">
-                <span>활성</span>
-              </label>
-              <span class="text-muted-foreground ml-auto">{{ term.id ? `ID #${term.id}` : '신규' }}</span>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                class="text-destructive hover:text-destructive"
-                @click="removeTerm(idx)"
-              >
-                <Icon name="lucide:trash-2" size="14" class="mr-1" /> 목록에서 제거
-              </Button>
-            </div>
-            <p v-if="term.id" class="text-[11px] text-muted-foreground">
-              ⚠ 목록에서 제거해도 백엔드에서 삭제되지 않습니다. 비공개 처리하려면 "활성"을 해제하세요.
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -457,26 +539,59 @@ onMounted(load)
       </DetailSection>
 
       <div class="lg:col-span-2 space-y-3">
-        <h3 class="text-sm font-medium">약관 / 정책 문서</h3>
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-medium">약관 / 정책 문서</h3>
+          <Button
+            v-if="policy.terms?.length"
+            type="button"
+            size="sm"
+            variant="ghost"
+            @click="viewExpanded.size === (policy.terms?.length ?? 0) ? viewCollapseAll() : viewExpandAll()"
+          >
+            <Icon
+              :name="viewExpanded.size === (policy.terms?.length ?? 0) ? 'lucide:chevrons-down-up' : 'lucide:chevrons-up-down'"
+              size="14"
+              class="mr-1"
+            />
+            {{ viewExpanded.size === (policy.terms?.length ?? 0) ? '모두 접기' : '모두 펴기' }}
+          </Button>
+        </div>
         <div v-if="!policy.terms?.length" class="text-sm text-muted-foreground border rounded-md p-4">
           등록된 약관이 없습니다.
         </div>
         <div
           v-for="t in policy.terms ?? []"
           :key="t.id ?? `view-${t.policyType}-${t.title}`"
-          class="border rounded-md p-4 space-y-2"
-          :class="t.isActive === false ? 'opacity-60' : ''"
+          class="border rounded-md overflow-hidden"
+          :class="[
+            t.isActive === false ? 'opacity-60' : '',
+            t.id && viewExpanded.has(t.id) ? 'border-primary/40 ring-1 ring-primary/10' : ''
+          ]"
         >
-          <div class="flex items-center gap-2 text-xs text-muted-foreground">
-            <span class="font-medium text-foreground">{{ POLICY_TYPE_LABEL[t.policyType] ?? t.policyType }}</span>
-            <span>·</span>
-            <span>v{{ t.version || '1.0' }}</span>
-            <span v-if="t.isRequired" class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">필수</span>
-            <span v-if="t.isActive === false" class="ml-1 px-1.5 py-0.5 rounded bg-muted">비활성</span>
-            <span class="ml-auto">ID #{{ t.id }}</span>
+          <button
+            type="button"
+            class="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/40 transition"
+            @click="t.id && toggleViewExpanded(t.id)"
+          >
+            <Icon
+              :name="t.id && viewExpanded.has(t.id) ? 'lucide:chevron-down' : 'lucide:chevron-right'"
+              size="16"
+              class="shrink-0 text-muted-foreground"
+            />
+            <span class="text-xs font-medium text-foreground shrink-0">
+              {{ POLICY_TYPE_LABEL[t.policyType] ?? t.policyType }}
+            </span>
+            <span class="text-xs text-muted-foreground shrink-0">v{{ t.version || '1.0' }}</span>
+            <span class="text-sm truncate">{{ t.title }}</span>
+            <span v-if="t.isRequired" class="ml-auto px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] shrink-0">필수</span>
+            <span v-if="t.isActive === false" class="px-1.5 py-0.5 rounded bg-muted text-[11px] shrink-0">비활성</span>
+            <span class="text-[11px] text-muted-foreground shrink-0" :class="t.isRequired || t.isActive === false ? '' : 'ml-auto'">
+              #{{ t.id }}
+            </span>
+          </button>
+          <div v-show="t.id && viewExpanded.has(t.id)" class="border-t p-4">
+            <div class="prose prose-sm max-w-none text-muted-foreground" v-html="t.content" />
           </div>
-          <div class="text-sm font-medium">{{ t.title }}</div>
-          <div class="prose prose-sm max-w-none text-muted-foreground line-clamp-6" v-html="t.content" />
         </div>
       </div>
     </div>
