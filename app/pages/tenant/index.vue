@@ -339,7 +339,7 @@ const social = computed(() => settings.value?.social ?? {})
         </DetailSection>
       </div>
 
-      <Card>
+      <Card v-if="false">
         <CardHeader class="pb-3 flex flex-row items-start justify-between space-y-0">
           <div>
             <CardTitle class="text-base">헤더 메뉴</CardTitle>
