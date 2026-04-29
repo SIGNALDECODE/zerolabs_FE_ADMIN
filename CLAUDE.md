@@ -18,8 +18,8 @@
 ### API
 - 모든 HTTP 호출은 `useApi()` composable 경유. 직접 `$fetch` 금지.
 - CSR base URL 은 `NUXT_PUBLIC_API_BASE` 환경변수.
-  - **dev**: `/api` (Nuxt 프록시 `server/api/[...].ts` 경유 — cross-site 쿠키 우회. 프록시 타겟은 `API_BASE_URL`)
-  - **prod**: BE prod 절대 URL (`https://<be-host>/api/v1`) — BE 직통 (HTTPS + 백엔드 `SameSite=None; Secure` 전제)
+  - **dev/prod 공통**: `/api` (Nuxt 프록시 `server/api/[...].ts` 경유 — same-origin 우회로 cross-site 쿠키/CORS 회피)
+  - 프록시 타겟은 `API_BASE_URL` (BE 절대 URL). prod 는 호스팅(Vercel 등) 서버 환경변수에 주입.
 - 도메인마다 `app/composables/useXxx.ts` 하나 — 메서드만 반환 (reactive state 금지).
 - 공유 reactive 상태가 필요하면 Pinia 스토어.
 - 응답 unwrap 은 `useApi` 가 `ApiResponse<T>.data` 자동으로 벗긴다.

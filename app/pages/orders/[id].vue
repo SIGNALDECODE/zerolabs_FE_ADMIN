@@ -15,6 +15,9 @@ const id = Number(route.params.id)
 const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 
+/** 백엔드는 비회원이면 customer.userId == null 로 내려줌 (name 은 "비회원"). */
+const isGuest = computed(() => order.value?.customer?.userId == null)
+
 const SHIPMENT_ALLOWED_STATUSES = ['PREPARING', 'SHIPPING', 'PARTIAL_DELIVERED'] as const
 // 단일배송 정책: 송장은 주문당 1건만 등록. 이미 등록되어 있으면 버튼 비노출.
 const canCreateShipment = computed(() =>
@@ -147,6 +150,13 @@ const addressLine = (s: OrderShipping | undefined) =>
       back-label="주문 목록으로"
     >
       <template #actions>
+        <span
+          v-if="order && isGuest"
+          class="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+          title="비회원 주문"
+        >
+          비회원
+        </span>
         <StatusBadge v-if="order" :status="order.status" />
         <Button
           v-if="canMarkPreparing"
@@ -196,12 +206,24 @@ const addressLine = (s: OrderShipping | undefined) =>
       </DetailSection>
 
       <div class="grid gap-6 md:grid-cols-2">
-        <DetailSection title="주문 회원">
-          <DetailField label="회원 ID" :value="order.customer?.userId" />
-          <DetailField label="이름" :value="order.customer?.name" />
-          <DetailField label="등급" :value="order.customer?.grade" />
-          <DetailField label="연락처" :value="formatPhone(order.customer?.phone)" />
-          <DetailField label="이메일" :value="order.customer?.email" full />
+        <DetailSection :title="isGuest ? '주문자 (비회원)' : '주문 회원'">
+          <template v-if="isGuest">
+            <DetailField label="구분">
+              <span class="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700">
+                비회원 주문
+              </span>
+            </DetailField>
+            <DetailField label="이름" :value="order.customer?.name ?? '비회원'" />
+            <DetailField label="연락처" :value="formatPhone(order.customer?.phone)" />
+            <DetailField label="이메일" :value="order.customer?.email" full />
+          </template>
+          <template v-else>
+            <DetailField label="회원 ID" :value="order.customer?.userId" />
+            <DetailField label="이름" :value="order.customer?.name" />
+            <DetailField label="등급" :value="order.customer?.grade" />
+            <DetailField label="연락처" :value="formatPhone(order.customer?.phone)" />
+            <DetailField label="이메일" :value="order.customer?.email" full />
+          </template>
         </DetailSection>
 
         <DetailSection title="배송지">

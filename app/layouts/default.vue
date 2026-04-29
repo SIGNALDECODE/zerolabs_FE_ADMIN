@@ -10,7 +10,13 @@ const route = useRoute()
  */
 const HIDDEN_NAV_PATHS = new Set(['/displays', '/popups'])
 
-const rawNavSections = [
+/**
+ * `adminOnly: true` 항목은 최고관리자(ADMIN)에게만 사이드바에 노출됨.
+ * 라우트 자체는 살아있어 직접 URL 접근은 가능 (현재 BE가 ADMIN/STAFF 권한 차이 없음).
+ */
+type NavItem = { to: string, label: string, icon: string, adminOnly?: boolean }
+
+const rawNavSections: { label: string, items: NavItem[] }[] = [
   {
     label: '운영',
     items: [
@@ -34,7 +40,7 @@ const rawNavSections = [
     label: '회원',
     items: [
       { to: '/users', label: '회원', icon: 'lucide:users' },
-      { to: '/admins', label: '관리자', icon: 'lucide:shield' }
+      { to: '/admins', label: '관리자', icon: 'lucide:shield', adminOnly: true }
     ]
   },
   {
@@ -59,9 +65,17 @@ const rawNavSections = [
   }
 ]
 
-const navSections = rawNavSections
-  .map(s => ({ ...s, items: s.items.filter(it => !HIDDEN_NAV_PATHS.has(it.to)) }))
-  .filter(s => s.items.length > 0)
+const navSections = computed(() =>
+  rawNavSections
+    .map(s => ({
+      ...s,
+      items: s.items.filter(it =>
+        !HIDDEN_NAV_PATHS.has(it.to)
+        && (!it.adminOnly || authStore.isAdmin)
+      )
+    }))
+    .filter(s => s.items.length > 0)
+)
 
 const handleLogout = async () => {
   await authStore.logout()
@@ -87,7 +101,7 @@ if (import.meta.client) {
 
 // 현재 페이지의 메뉴명을 모바일 헤더에 표기 (어디 있는지 즉시 인지)
 const currentNav = computed(() => {
-  const all = navSections.flatMap(s => s.items)
+  const all = navSections.value.flatMap(s => s.items)
   // 정확 일치 → 가장 긴 prefix 매칭 순으로
   const exact = all.find(i => i.to === route.path)
   if (exact) return exact

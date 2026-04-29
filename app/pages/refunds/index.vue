@@ -101,6 +101,9 @@ const submitProcess = async () => {
 const statusLabels: Record<string, string> = {
   PENDING: '대기', COMPLETED: '완료', FAILED: '실패'
 }
+
+/** 백엔드는 비회원이면 customer.userId == null 로 내려줌. */
+const isGuest = computed(() => order.value?.customer?.userId == null && order.value != null)
 </script>
 
 <template>
@@ -131,12 +134,23 @@ const statusLabels: Record<string, string> = {
       <CardHeader class="pb-3">
         <div class="flex items-center justify-between">
           <div>
-            <CardTitle class="text-base">
-              주문 #{{ searchedOrderId }}
-              <span class="text-muted-foreground text-sm font-normal ml-2">· 환불 {{ refunds.length }}건</span>
+            <CardTitle class="text-base flex items-center gap-2 flex-wrap">
+              <span>주문 #{{ searchedOrderId }}</span>
+              <span
+                v-if="isGuest"
+                class="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"
+                title="비회원 주문"
+              >
+                비회원
+              </span>
+              <span class="text-muted-foreground text-sm font-normal">· 환불 {{ refunds.length }}건</span>
             </CardTitle>
             <CardDescription v-if="order">
               {{ order.orderNumber }} · 총 {{ formatCurrency(order.summary?.grandTotal) }}
+              <template v-if="isGuest">
+                · 주문자 {{ order.customer?.name ?? '비회원' }}
+                <span v-if="order.customer?.phone"> ({{ order.customer.phone }})</span>
+              </template>
             </CardDescription>
           </div>
           <div class="flex items-center gap-2">

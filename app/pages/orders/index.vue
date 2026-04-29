@@ -239,7 +239,16 @@ onMounted(() => { loadOrders(); loadCarriers() })
         />
       </template>
       <template #cell-orderNumber="{ row }">
-        <span class="font-mono text-xs">{{ row.orderNumber }}</span>
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="font-mono text-xs">{{ row.orderNumber }}</span>
+          <span
+            v-if="row.userId == null"
+            class="inline-flex items-center rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+            title="비회원 주문"
+          >
+            비회원
+          </span>
+        </div>
       </template>
       <template #cell-productName="{ row }">
         <div class="flex items-center gap-2 min-w-0">

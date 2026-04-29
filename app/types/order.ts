@@ -9,7 +9,8 @@ export interface OrderListItem {
   id: number
   orderNumber: string
   orderedAt: string
-  userId: number
+  /** 비회원 주문이면 null */
+  userId: number | null
   phone?: string | null
   address?: string | null
   itemCount: number
@@ -33,9 +34,13 @@ export interface OrderItem {
   orderItemStatus?: string
 }
 
-/** 백엔드 `CustomerInfo` */
+/**
+ * 백엔드 `CustomerInfo`
+ * - 비회원 주문이면 `userId == null` 이고 `name === "비회원"` 으로 내려옴
+ *   (phone/email 은 `Order.guestPhone` / `Order.guestEmail` 에서 채워짐)
+ */
 export interface OrderCustomer {
-  userId?: number
+  userId?: number | null
   name?: string
   grade?: string
   phone?: string
