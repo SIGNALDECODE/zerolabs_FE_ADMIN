@@ -10,12 +10,10 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // dev 우회용 프록시 타겟 (server/api/[...].ts 가 사용). prod 직통이면 비워두면 됨.
+    // 프록시 타겟 (server/api/[...].ts 가 사용). dev/prod 모두 BE 절대 URL 을 주입한다.
     apiBaseUrl: process.env.API_BASE_URL || '',
     public: {
-      // CSR 호출 base.
-      // - dev: '/api' (Nuxt 서버 프록시 경유) — cross-site/HTTP BE 우회
-      // - prod: 절대 URL (https://api.xxx.com/api/v1) — BE 직통
+      // CSR 호출 base. dev/prod 공통으로 '/api' (Nuxt 서버 프록시 경유, same-origin 우회).
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
     }
   },

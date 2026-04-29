@@ -1,9 +1,8 @@
 /**
- * Admin API Proxy (dev 우회용).
- * - prod 배포 시 FE 가 BE 를 직접 호출하므로 사용 안 함 (NUXT_PUBLIC_API_BASE 가 절대 URL).
- * - dev 에서 BE 가 cross-site/HTTP 라 브라우저가 SameSite 쿠키를 못 실어보낼 때,
- *   FE 와 same-origin 으로 우회시키기 위해 사용.
- *   `.env` 에 API_BASE_URL=<BE 절대 URL>, NUXT_PUBLIC_API_BASE=/api 로 설정.
+ * Admin API Proxy (dev/prod 공통).
+ * - FE 와 same-origin 으로 우회시켜 cross-site 쿠키 / CORS 이슈를 회피.
+ * - dev/prod 모두 NUXT_PUBLIC_API_BASE=/api, API_BASE_URL=<BE 절대 URL> 로 설정.
+ *   prod 도 Vercel(또는 호스팅)의 서버 환경변수에 API_BASE_URL 을 주입해야 한다.
  */
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -37,11 +36,17 @@ export default defineEventHandler(async (event) => {
   if (headers.cookie) requestHeaders.cookie = headers.cookie
   if (headers.authorization) requestHeaders.authorization = headers.authorization
 
-  const rewriteCookie = (cookie: string) => cookie
-    .replace(/;\s*Secure/gi, '')
-    .replace(/SameSite=None/gi, 'SameSite=Lax')
-    .replace(/Path=\/api[^;]*/gi, 'Path=/')
-    .replace(/Domain=[^;]+;?/gi, '')
+  // HTTPS 요청이면 Secure 유지, HTTP(dev)면 제거. SameSite=None 은 same-origin 으로 우회되므로 Lax 로 격하.
+  const xfProto = (headers['x-forwarded-proto'] || '').split(',')[0]?.trim()
+  const isHttps = xfProto === 'https' || (event.node.req.socket as { encrypted?: boolean })?.encrypted === true
+  const rewriteCookie = (cookie: string) => {
+    let out = cookie
+      .replace(/SameSite=None/gi, 'SameSite=Lax')
+      .replace(/Path=\/api[^;]*/gi, 'Path=/')
+      .replace(/Domain=[^;]+;?/gi, '')
+    if (!isHttps) out = out.replace(/;\s*Secure/gi, '')
+    return out
+  }
 
   try {
     const response = await $fetch.raw(targetUrl, {
