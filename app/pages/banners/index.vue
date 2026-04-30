@@ -85,10 +85,10 @@ onMounted(load)
         </SelectTrigger>
         <SelectContent>
           <SelectItem :value="ALL">전체 위치</SelectItem>
-          <SelectItem value="HERO">HERO</SelectItem>
-          <SelectItem value="SLIDE">SLIDE</SelectItem>
-          <SelectItem value="HALF">HALF</SelectItem>
-          <SelectItem value="FULL">FULL</SelectItem>
+          <SelectItem value="HERO">HERO(메인배너)</SelectItem>
+          <SelectItem value="SLIDE">SLIDE(슬라이드)</SelectItem>
+          <SelectItem value="HALF">HALF(프로모션 2단 배너)</SelectItem>
+          <SelectItem value="FULL">FULL(전체폭)</SelectItem>
         </SelectContent>
       </Select>
       <Select v-model="filters.status">
