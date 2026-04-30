@@ -1,4 +1,5 @@
 import { toast } from 'vue-sonner'
+import { resolveErrorMessage } from '~/utils/api/errorMessage'
 
 /**
  * 토스트 유틸. alert 대체용.
@@ -6,16 +7,11 @@ import { toast } from 'vue-sonner'
  * - useToast().success('저장됨') → 성공 스타일
  * - useToast().info('안내')
  *
- * useApi 에서 던지는 ApiError 는 자동으로 `.message` 표시.
+ * 에러 → 메시지 변환은 `resolveErrorMessage` 로 단일화. 코드(`AUTH_006` 등) 노출 금지.
  */
 export const useToast = () => {
   const error = (err: unknown, fallback = '요청 처리 중 오류가 발생했습니다.') => {
-    if (typeof err === 'string') {
-      toast.error(err)
-      return
-    }
-    const e = (err && typeof err === 'object') ? err as { message?: string, data?: { errorCode?: { message?: string } } } : {}
-    toast.error(e.message ?? e.data?.errorCode?.message ?? fallback)
+    toast.error(resolveErrorMessage(err, fallback))
   }
 
   const success = (message: string) => toast.success(message)

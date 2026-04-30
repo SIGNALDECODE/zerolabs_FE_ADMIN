@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { resolveErrorMessage } from '~/utils/api/errorMessage'
+
 definePageMeta({ layout: 'auth' })
 useHead({ title: 'ZeroLabs Admin — 로그인' })
 
@@ -23,7 +25,7 @@ const handleSubmit = async () => {
     await authStore.loginWith({ email: form.email, password: form.password })
     router.push(redirectPath.value)
   } catch (err) {
-    errorMessage.value = (err as { message?: string })?.message || '로그인에 실패했습니다.'
+    errorMessage.value = resolveErrorMessage(err, '로그인에 실패했습니다.')
   } finally {
     submitting.value = false
   }

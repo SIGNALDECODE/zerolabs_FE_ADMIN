@@ -217,9 +217,9 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="HERO">HERO (메인 대형)</SelectItem>
-                <SelectItem value="SLIDE">SLIDE (슬라이드)</SelectItem>
-                <SelectItem value="HALF">HALF (절반)</SelectItem>
-                <SelectItem value="FULL">FULL (전체폭)</SelectItem>
+                <SelectItem value="SLIDE">SLIDE (슬라이드 - 아직 미적용)</SelectItem>
+                <SelectItem value="HALF">HALF (프로모션 2단 배너)</SelectItem>
+                <SelectItem value="FULL">FULL (전체폭 - 아직 미적용)</SelectItem>
               </SelectContent>
             </Select>
           </div>
