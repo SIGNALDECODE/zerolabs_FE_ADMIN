@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import { isImageUrl, isLinkUrl, IMAGE_URL_MESSAGE, LINK_URL_MESSAGE } from '~/utils/validation'
 import type { Popup, PopupFormState } from '~/types/marketing'
 
 definePageMeta({ layout: 'default' })
@@ -89,6 +90,8 @@ const buildBody = () => ({
 
 const submit = async () => {
   if (!form.name.trim()) return toast.error('팝업명은 필수입니다.')
+  if (!isImageUrl(form.image)) return toast.error(IMAGE_URL_MESSAGE)
+  if (!isLinkUrl(form.linkUrl)) return toast.error(LINK_URL_MESSAGE)
   saving.value = true
   try {
     if (isNew) {
@@ -213,7 +216,8 @@ useHead({ title: () => isNew ? '새 팝업 등록 | ZeroLabs Admin' : `${popup.v
 
         <div>
           <Label class="mb-1.5 block">연결 링크 URL</Label>
-          <Input v-model="form.linkUrl" placeholder="https://... (선택)" maxlength="500" />
+          <Input v-model="form.linkUrl" placeholder="https://... 또는 /promotions/123 (선택)" maxlength="500" />
+          <p class="mt-1 text-xs text-muted-foreground">https:// 절대경로 또는 / 로 시작하는 사이트 내부 경로만 허용됩니다.</p>
         </div>
 
         <div>

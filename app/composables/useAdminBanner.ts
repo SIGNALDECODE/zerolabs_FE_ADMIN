@@ -9,6 +9,7 @@ export interface BannerCreateBody {
   imageUrl: string
   mobileImageUrl?: string
   linkUrl?: string
+  buttonColor?: string
   sortOrder?: number
   status?: BannerStatus
   startedAt?: string

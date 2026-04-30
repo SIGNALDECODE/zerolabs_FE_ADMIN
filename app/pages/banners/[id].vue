@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { formatDate } from '~/utils/format'
+import {
+  isImageUrl, isLinkUrl, isHexColor,
+  IMAGE_URL_MESSAGE, LINK_URL_MESSAGE, HEX_COLOR_MESSAGE
+} from '~/utils/validation'
 import type { Banner, BannerFormState } from '~/types/marketing'
 
 definePageMeta({ layout: 'default' })
@@ -27,6 +31,7 @@ const form = reactive<BannerFormState>({
   imageUrl: '',
   mobileImageUrl: '',
   linkUrl: '',
+  buttonColor: '#FFFFFF',
   sortOrder: 1,
   status: 'INACTIVE',
   startedAt: '',
@@ -43,6 +48,7 @@ const resetForm = () => {
     imageUrl: b.imageUrl ?? '',
     mobileImageUrl: b.mobileImageUrl ?? '',
     linkUrl: b.linkUrl ?? '',
+    buttonColor: b.buttonColor ?? '#FFFFFF',
     sortOrder: b.sortOrder ?? 1,
     status: b.status ?? 'INACTIVE',
     startedAt: b.startedAt?.slice(0, 16) ?? '',
@@ -80,6 +86,7 @@ const buildBody = () => ({
   imageUrl: form.imageUrl,
   mobileImageUrl: form.mobileImageUrl || undefined,
   linkUrl: form.linkUrl || undefined,
+  buttonColor: form.buttonColor || undefined,
   sortOrder: Number(form.sortOrder) || 0,
   status: form.status,
   startedAt: form.startedAt ? `${form.startedAt}:00` : undefined,
@@ -90,6 +97,10 @@ const buildBody = () => ({
 const submit = async () => {
   if (!form.title.trim()) return toast.error('제목은 필수입니다.')
   if (!form.imageUrl.trim()) return toast.error('이미지 URL 은 필수입니다.')
+  if (!isImageUrl(form.imageUrl)) return toast.error(IMAGE_URL_MESSAGE)
+  if (!isImageUrl(form.mobileImageUrl)) return toast.error(`모바일 ${IMAGE_URL_MESSAGE}`)
+  if (!isLinkUrl(form.linkUrl)) return toast.error(LINK_URL_MESSAGE)
+  if (!isHexColor(form.buttonColor)) return toast.error(HEX_COLOR_MESSAGE)
   saving.value = true
   try {
     if (isNew) {
@@ -231,7 +242,28 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
 
         <div>
           <Label class="mb-1.5 block">연결 링크 URL</Label>
-          <Input v-model="form.linkUrl" placeholder="https://... (선택)" maxlength="500" />
+          <Input v-model="form.linkUrl" placeholder="https://... 또는 /promotions/123 (선택)" maxlength="500" />
+          <p class="mt-1 text-xs text-muted-foreground">https:// 절대경로 또는 / 로 시작하는 사이트 내부 경로만 허용됩니다.</p>
+        </div>
+
+        <div>
+          <Label class="mb-1.5 block">CTA 버튼 글자 색상</Label>
+          <p class="mb-2 text-xs text-muted-foreground">유저페이지 배너의 CTA 버튼 폰트 색상. 미입력 시 기본값(#FFFFFF) 사용.</p>
+          <div class="flex items-center gap-2">
+            <input
+              type="color"
+              :value="form.buttonColor || '#FFFFFF'"
+              class="h-9 w-12 cursor-pointer rounded border bg-background p-1"
+              @input="form.buttonColor = ($event.target as HTMLInputElement).value.toUpperCase()"
+            />
+            <Input v-model="form.buttonColor" placeholder="#FFFFFF" maxlength="7" class="font-mono w-32" />
+            <span
+              class="inline-flex h-9 items-center rounded border px-3 text-sm font-medium"
+              :style="{ color: isHexColor(form.buttonColor) ? form.buttonColor : '#000', background: '#1f2937' }"
+            >
+              미리보기 텍스트
+            </span>
+          </div>
         </div>
 
         <div>
@@ -299,6 +331,13 @@ useHead({ title: () => isNew ? '새 배너 등록 | ZeroLabs Admin' : `${banner.
         <DetailField label="무기한 노출" :value="banner.noEndDate ? '예' : '아니오'" />
         <DetailField label="시작일시" :value="formatDate(banner.startedAt)" />
         <DetailField label="종료일시" :value="banner.noEndDate ? '상시' : formatDate(banner.endedAt)" />
+        <DetailField label="CTA 버튼 색상">
+          <div v-if="banner.buttonColor" class="flex items-center gap-2">
+            <span class="inline-block h-4 w-4 rounded border" :style="{ background: banner.buttonColor }" />
+            <span class="font-mono text-xs">{{ banner.buttonColor }}</span>
+          </div>
+          <span v-else>-</span>
+        </DetailField>
         <DetailField label="링크 URL" full>
           <a v-if="banner.linkUrl" :href="banner.linkUrl" target="_blank" rel="noopener" class="text-blue-600 hover:underline font-mono text-xs">
             {{ banner.linkUrl }}

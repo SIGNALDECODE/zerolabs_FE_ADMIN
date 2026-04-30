@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DisplaySection } from '~/composables/useAdminDisplay'
+import { isLinkUrl, LINK_URL_MESSAGE } from '~/utils/validation'
 
 // Input v-model 바인딩용 non-null 문자열 필드
 interface DisplaySectionForm extends Omit<DisplaySection, 'title' | 'subtitle' | 'description' | 'linkUrl'> {
@@ -69,6 +70,11 @@ const onBannerChange = (e: Event) => {
 }
 
 const save = async () => {
+  for (const s of sections.value) {
+    if (!isLinkUrl(s.linkUrl)) {
+      return toast.error(`"${s.title || s.keywordCode}" 섹션 ${LINK_URL_MESSAGE}`)
+    }
+  }
   saving.value = true
   try {
     // 백엔드는 List<DisplaySectionUpdateRequest> 를 직접 받음 (배열, 래핑 X)
@@ -181,7 +187,7 @@ const recommendedSection = computed(() =>
                     <Input v-model="s.subtitle" class="h-8 text-sm" placeholder="부제목 (선택)" />
                   </div>
                   <Input v-model="s.description" class="h-8 text-sm" placeholder="설명 (선택)" />
-                  <Input v-model="s.linkUrl" class="h-8 text-sm font-mono text-xs" placeholder="https://... (선택)" />
+                  <Input v-model="s.linkUrl" class="h-8 text-sm font-mono text-xs" placeholder="https://... 또는 /promotions (선택)" />
                   <label class="inline-flex items-center gap-2 text-sm cursor-pointer mt-1">
                     <input v-model="s.isActive" type="checkbox" class="h-4 w-4" />
                     활성 (메인 노출)

@@ -1,5 +1,6 @@
 ﻿<script setup lang="ts">
 import { formatPhone } from '~/utils/format'
+import { isSocialUrl, SOCIAL_URL_MESSAGE } from '~/utils/validation'
 import type {
   TenantAllSettings,
   TenantFormState,
@@ -85,7 +86,14 @@ const onFileChange = (e: Event, which: 'logo' | 'favicon') => {
 const startEdit = () => { editing.value = true }
 const cancelEdit = () => { editing.value = false; resetForm() }
 
+const SOCIAL_LABELS = { instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', blog: 'Blog', kakao: 'KakaoTalk 채널' } as const
+
 const submit = async () => {
+  for (const key of Object.keys(SOCIAL_LABELS) as (keyof typeof SOCIAL_LABELS)[]) {
+    if (!isSocialUrl(form.social[key])) {
+      return toast.error(`${SOCIAL_LABELS[key]} ${SOCIAL_URL_MESSAGE}`)
+    }
+  }
   saving.value = true
   try {
     const data = {
@@ -268,11 +276,12 @@ const social = computed(() => settings.value?.social ?? {})
             <CardDescription class="text-xs">소비자몰 푸터·SNS 영역에 노출</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div><Label class="mb-1.5 block text-xs">Instagram</Label><Input v-model="form.social.instagram" /></div>
-            <div><Label class="mb-1.5 block text-xs">Facebook</Label><Input v-model="form.social.facebook" /></div>
-            <div><Label class="mb-1.5 block text-xs">YouTube</Label><Input v-model="form.social.youtube" /></div>
-            <div><Label class="mb-1.5 block text-xs">Blog</Label><Input v-model="form.social.blog" /></div>
-            <div><Label class="mb-1.5 block text-xs">KakaoTalk 채널</Label><Input v-model="form.social.kakao" /></div>
+            <div><Label class="mb-1.5 block text-xs">Instagram</Label><Input v-model="form.social.instagram" placeholder="https://..." /></div>
+            <div><Label class="mb-1.5 block text-xs">Facebook</Label><Input v-model="form.social.facebook" placeholder="https://..." /></div>
+            <div><Label class="mb-1.5 block text-xs">YouTube</Label><Input v-model="form.social.youtube" placeholder="https://..." /></div>
+            <div><Label class="mb-1.5 block text-xs">Blog</Label><Input v-model="form.social.blog" placeholder="https://..." /></div>
+            <div><Label class="mb-1.5 block text-xs">KakaoTalk 채널</Label><Input v-model="form.social.kakao" placeholder="https://..." /></div>
+            <p class="md:col-span-2 text-xs text-muted-foreground">소셜 URL 은 https:// 로 시작해야 합니다.</p>
           </CardContent>
         </Card>
       </div>

@@ -75,6 +75,7 @@ export interface Banner {
   imageUrl: string
   mobileImageUrl?: string | null
   linkUrl?: string | null
+  buttonColor?: string | null
   sortOrder?: number
   status: BannerStatus
   startedAt?: string | null
@@ -89,6 +90,7 @@ export interface BannerFormState {
   imageUrl: string
   mobileImageUrl: string
   linkUrl: string
+  buttonColor: string
   sortOrder: number | string
   status: BannerStatus
   startedAt: string
