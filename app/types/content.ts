@@ -1,4 +1,4 @@
-import type { NoticeType, NoticeStatus, InquiryStatus, QnaStatus } from './common'
+import type { NoticeType, NoticeStatus, InquiryStatus, QnaStatus, EventStatus } from './common'
 
 export interface NoticeListItem {
   id: number
@@ -88,6 +88,28 @@ export interface Review {
   adminReply?: string | null
   adminRepliedAt?: string | null
   createdAt: string
+  updatedAt?: string
+}
+
+/** 백엔드 `EventListResponse` */
+export interface EventListItem {
+  id: number
+  title: string
+  summary?: string | null
+  thumbnailUrl?: string | null
+  startedAt: string
+  endedAt: string
+  status: EventStatus
+  viewCount?: number
+  createdAt: string
+}
+
+/** 백엔드 `EventResponse` (어드민 단건) */
+export interface EventDetail extends EventListItem {
+  contentHtml: string
+  authorId?: number
+  authorName?: string
+  linkedCouponId?: number | null
   updatedAt?: string
 }
 

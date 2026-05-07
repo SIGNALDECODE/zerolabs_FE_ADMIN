@@ -10,6 +10,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import Placeholder from '@tiptap/extension-placeholder'
+import TextAlign from '@tiptap/extension-text-align'
 
 interface Props {
   modelValue: string
@@ -70,7 +71,12 @@ const editor = useEditor({
         target: '_blank'
       }
     }),
-    Placeholder.configure({ placeholder: () => props.placeholder })
+    Placeholder.configure({ placeholder: () => props.placeholder }),
+    TextAlign.configure({
+      types: ['heading', 'paragraph', 'image'],
+      alignments: ['left', 'center', 'right', 'justify'],
+      defaultAlignment: 'left'
+    })
   ],
   editorProps: {
     attributes: {
@@ -281,6 +287,41 @@ const onHtmlInput = (e: Event) => {
 
       <Button
         type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
+        :class="editor?.isActive({ textAlign: 'left' }) ? 'bg-accent text-accent-foreground' : ''"
+        title="왼쪽 정렬"
+        @click="editor?.chain().focus().setTextAlign('left').run()"
+      >
+        <Icon name="lucide:align-left" size="14" />
+      </Button>
+      <Button
+        type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
+        :class="editor?.isActive({ textAlign: 'center' }) ? 'bg-accent text-accent-foreground' : ''"
+        title="가운데 정렬"
+        @click="editor?.chain().focus().setTextAlign('center').run()"
+      >
+        <Icon name="lucide:align-center" size="14" />
+      </Button>
+      <Button
+        type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
+        :class="editor?.isActive({ textAlign: 'right' }) ? 'bg-accent text-accent-foreground' : ''"
+        title="오른쪽 정렬"
+        @click="editor?.chain().focus().setTextAlign('right').run()"
+      >
+        <Icon name="lucide:align-right" size="14" />
+      </Button>
+      <Button
+        type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
+        :class="editor?.isActive({ textAlign: 'justify' }) ? 'bg-accent text-accent-foreground' : ''"
+        title="양쪽 정렬"
+        @click="editor?.chain().focus().setTextAlign('justify').run()"
+      >
+        <Icon name="lucide:align-justify" size="14" />
+      </Button>
+
+      <Separator orientation="vertical" class="mx-1 h-5" />
+
+      <Button
+        type="button" variant="ghost" size="sm" class="h-8 w-8 p-0"
         :disabled="uploading"
         title="이미지 업로드"
         @click="pickImage"
@@ -411,6 +452,9 @@ const onHtmlInput = (e: Event) => {
 .rte-content .rte-image.ProseMirror-selectednode {
   outline: 2px solid hsl(var(--ring));
 }
+.rte-content .rte-image[style*="text-align: center"] { margin-left: auto; margin-right: auto; }
+.rte-content .rte-image[style*="text-align: right"]  { margin-left: auto; margin-right: 0; }
+.rte-content .rte-image[style*="text-align: left"]   { margin-left: 0; margin-right: auto; }
 .rte-content p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: hsl(var(--muted-foreground));

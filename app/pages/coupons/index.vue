@@ -26,7 +26,7 @@ const columns = [
   { key: 'couponType', label: '타입' },
   { key: 'discount', label: '할인', align: 'right' as const },
   { key: 'issued', label: '발급 수량' },
-  { key: 'isVisible', label: '노출', align: 'center' as const },
+  { key: 'isVisible', label: '목록 노출', align: 'center' as const },
   { key: 'status', label: '상태' },
   { key: 'createdAt', label: '등록일' }
 ]

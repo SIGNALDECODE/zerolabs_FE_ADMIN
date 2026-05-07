@@ -496,7 +496,14 @@ useHead({ title: () => isNew ? '새 쿠폰 등록 | ZeroLabs Admin' : `${coupon.
         <DetailField label="유효기간" :value="validityText" />
         <DetailField label="프로모션 중복" :value="coupon.allowPromotionOverlap ? '가능' : '불가'" />
         <DetailField label="쿠폰 중복" :value="coupon.allowDuplicateUse ? '가능' : '불가'" />
-        <DetailField label="노출 여부" :value="coupon.isVisible ? '노출' : '숨김'" />
+        <DetailField label="일반 목록 노출" full>
+          <div class="flex items-center gap-2">
+            <span>{{ coupon.isVisible ? '노출' : '숨김' }}</span>
+            <span class="text-xs text-muted-foreground">
+              · 끄면 일반 쿠폰 페이지에서만 숨김. 이벤트 연결 쿠폰은 그래도 다운로드 가능.
+            </span>
+          </div>
+        </DetailField>
         <DetailField label="등록일시" :value="formatDate(coupon.createdAt)" />
         <DetailField v-if="coupon.notice" label="유의사항" full>
           <div class="whitespace-pre-wrap text-muted-foreground">{{ coupon.notice }}</div>

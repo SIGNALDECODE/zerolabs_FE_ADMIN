@@ -53,6 +53,7 @@ const rawNavSections: { label: string, items: NavItem[] }[] = [
       { to: '/qnas', label: 'Q&A', icon: 'lucide:help-circle' },
       { to: '/inquiries', label: '1:1 문의', icon: 'lucide:mail' },
       { to: '/notices', label: '공지사항', icon: 'lucide:megaphone' },
+      { to: '/events', label: '이벤트', icon: 'lucide:calendar-heart' },
       { to: '/faqs', label: 'FAQ', icon: 'lucide:book-open' }
     ]
   },

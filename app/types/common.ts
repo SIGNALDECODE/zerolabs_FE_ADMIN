@@ -35,6 +35,8 @@ export type QnaStatus = 'PENDING' | 'ANSWERED' | 'CLOSED'
 export type NoticeType = 'NOTICE' | 'INSPECTION' | 'GUIDELINES' | 'EVENT'
 export type NoticeStatus = 'ACTIVE' | 'INACTIVE'
 
+export type EventStatus = 'ACTIVE' | 'INACTIVE'
+
 export type BannerPosition = 'HERO' | 'SLIDE' | 'HALF' | 'FULL'
 export type BannerStatus = 'ACTIVE' | 'INACTIVE' | 'SCHEDULED'
 export type PopupType = 'CENTER' | 'FLOATING'
